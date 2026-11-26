@@ -180,7 +180,10 @@ class Synthesizer:
                                 self.stats["flourish_rejects"] = self.stats.get("flourish_rejects", 0) + 1
                         r = read_words[k] if read_words is not None else ""
                         # size by mean letter width: the row-profile x-height is fooled by ascenders
-                        cand = WordImage(w, sub, bl, float(np.clip(cw * getattr(eng, "xh_per_cw", 1.15), 0.5 * xh, 1.5 * xh)), 1.0 - err, r)
+                        wxh = float(np.clip(cw * getattr(eng, "xh_per_cw", 1.15), 0.5 * xh, 1.5 * xh))
+                        if getattr(eng, "per_word_xh", False):
+                            wxh = word_xheight(sub, wxh)
+                        cand = WordImage(w, sub, bl, wxh, 1.0 - err, r)
                         if wid not in best or cand.score > best[wid].score:
                             best[wid] = cand
             pending = [(wid, w) for wid, w in pending
@@ -191,3 +194,15 @@ class Synthesizer:
         if missing:
             raise RuntimeError(f"could not synthesise {len(missing)} words, e.g. {texts[missing[0]]!r}")
         return [best[i] for i in range(len(texts))]
+
+
+def word_xheight(alpha: np.ndarray, line_xh: float) -> float:
+    """x-height of one word: the height of its dense band of rows (ascenders and descenders
+    are thin and fall below the cut). Kept within 0.65-1.5x of the line estimate."""
+    prof = (alpha > 0.35).sum(axis=1).astype(np.float32)
+    if prof.max() <= 0:
+        return line_xh
+    prof = np.convolve(prof, np.ones(3) / 3, mode="same")
+    band = np.where(prof >= 0.45 * prof.max())[0]
+    h = float(band[-1] - band[0] + 1) if len(band) else line_xh
+    return float(np.clip(h, 0.65 * line_xh, 1.5 * line_xh))
