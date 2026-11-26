@@ -41,3 +41,9 @@ def test_phone_capture_shape():
     out = capture(page, 1, Capture(desk=True))
     assert out.ndim == 3 and out.shape[2] == 3
     assert out.shape[0] > page.shape[0]
+
+
+def test_sane_look_drops_bad_measurements():
+    from ductus.page import sane_look
+    pl = sane_look({"xh_mm": 13.3, "pitch": 2.05, "mess": 1.0, "gap_xh": 1.5, "ink": "#404851"})
+    assert "xh_mm" not in pl and pl["pitch"] == 2.05 and pl["mess"] == 0.6 and pl["ink"] == "#404851"

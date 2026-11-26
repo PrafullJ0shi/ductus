@@ -110,7 +110,7 @@ class Writer:
         refs, prof = load_style(o.style or "upright")
         look = Look.preset(o.look if o.look != "profile" else "natural")
         if prof:
-            pl = prof.get("look", {})
+            pl = sane_look(prof.get("look", {}))
             for k in ("xh_mm", "pitch", "slope_deg", "mess", "ink", "gap_xh"):
                 if k in pl:
                     setattr(look, k, pl[k])
@@ -263,7 +263,7 @@ def write_lines(writer: "Writer", lines: list[str], o: Options) -> tuple[list[np
     refs, prof = load_style(o.style or "upright")
     look = Look.preset(o.look if o.look != "profile" else "natural")
     if prof:
-        for k, v in prof.get("look", {}).items():
+        for k, v in sane_look(prof.get("look", {})).items():
             if hasattr(look, k):
                 setattr(look, k, v)
     look.margin_mm = (4, 4, 4, 4)
@@ -371,3 +371,23 @@ def _max_cer(o: "Options", prof: dict) -> float:
     if prof and o.legibility == "loose":
         return prof.get("max_cer", 0.5)
     return 0.25
+
+
+# plausible ranges for measured profile values; a value outside (a bad grid or scale estimate
+# from a photo) is dropped and the preset value is kept. mess is capped so a measured messy
+# hand stays readable: the mess goes into spacing and baseline, not letter shapes.
+SANE = {"xh_mm": (1.5, 5.0), "pitch": (1.6, 4.0), "slope_deg": (-6.0, 6.0), "gap_xh": (0.5, 2.0),
+        "mess": (0.0, 0.6)}
+
+
+def sane_look(pl: dict) -> dict:
+    out = {}
+    for k, v in pl.items():
+        if k in SANE and isinstance(v, (int, float)):
+            lo, hi = SANE[k]
+            if k == "mess":
+                v = min(max(v, lo), hi)
+            elif not lo <= v <= hi:
+                continue
+        out[k] = v
+    return out
