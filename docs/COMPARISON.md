@@ -33,7 +33,16 @@ Judge: `microsoft/trocr-large-handwritten`, a different and larger model than th
 uses for its own check. Normalised CER folds case and spacing around punctuation, which the
 judge itself gets wrong on clean text (the font's raw CER is 3.2% for that reason).
 
-RESULTS_CER
+| System | CER | CER, normalised | Lines with CER at most 10% | Identical copies of a repeated word | Seconds per line (CPU) |
+|---|---|---|---|---|---|
+| Handwriting font (Caveat) | 3.2% | 0.4% | 40/40 | 42.5% (median similarity 0.92) | 0.002 |
+| 2016 RNN, bias 1.5 | 6.3% | 3.5% | 37/40 | 0% | 3.1 |
+| 2016 RNN, bias 2.5 | 6.8% | 4.0% | 33/40 | 0% | 4.5 |
+| DiffBrush raw (2025) | 11.8% | 8.5% | 30/40 | 0% | 4.7 |
+| ductus, no read-back | 19.1% | 15.7% | 18/40 | 0% | 4.6 |
+| ductus natural (`quick` style) | 10.5% | 7.2% | 29/40 | 0% | 10.2 |
+| **ductus neat (`upright` style)** | **6.7%** | **3.2%** | **37/40** | **0%** | 10.1 |
+
 
 Reading the table honestly:
 
@@ -51,7 +60,7 @@ Reading the table honestly:
 Every pair of occurrences of the same word (same spelling, 3+ letters) in the 40 lines was
 compared after scaling to the same height ([`scripts/repetition_probe.py`](../scripts/repetition_probe.py)).
 
-RESULTS_REP
+The last-but-one column of the table above. Pairs whose widths differ by more than 15% are skipped as likely split errors, which can only raise a system's rate.
 
 Any generative system avoids identical copies. ductus is not better than the RNN here; both
 are at zero. The font is the outlier.
@@ -66,14 +75,28 @@ measures how close the copy is, on writers the model never saw.
 
 | System | Seconds per line |
 |---|---|
-SPEED_ROWS
+| Font | 0.002 |
+| 2016 RNN | 3.1 to 4.5 |
+| DiffBrush raw | 4.7 |
+| ductus with read-back | 10.1 to 12.6 |
 
 ductus is the slowest: about 3.5 s of diffusion per carrier line plus OCR and rewrites. The
 RNN is about three times faster per line; the font is instant.
 
 ## Features
 
-FEATURE_MATRIX
+| Feature | ductus | scribe (2016) | Grzego RNN | Caveat font tool | DiffBrush (raw) |
+|---|---|---|---|---|---|
+| Style from a photo of any writing | yes (one line, or a profile from pages) | no (pen-trace primes only) | no (built-in primes) | no | yes (one line) |
+| Capitals, digits, punctuation | 80 chars + drawn symbols | weak on capitals and digits | weak on capitals and digits | yes | 80 chars |
+| Same word never an identical copy | yes | yes | yes | no | yes |
+| Automatic legibility check and retry | yes (OCR) | no | partial (shape checks) | n/a | no |
+| A4 page layout | yes | no (one line) | page wrapper only | depends on tool | no (one line) |
+| Notes and maths structures (arrows, fractions, roots, tables, ticks) | yes | no | no | no | no |
+| Corrections (crossed-out words) | yes | no | no | no | no |
+| Ruled / grid paper, phone-photo look | yes | no | ruled only | depends | no |
+| PNG, PDF, SVG, animated SVG | yes | PNG (plot) | PNG, PDF | PNG | PNG |
+| Runs on CPU, no login | yes | yes (TF 1.x) | yes (TF 1.x) | yes | yes |
 
 ## Summary
 
