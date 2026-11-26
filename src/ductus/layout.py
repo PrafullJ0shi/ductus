@@ -236,7 +236,7 @@ class Layouter:
     def gap(self, k=1.0):
         m = self.look.mess * (1 + 5 * self.look.fatigue * self.progress())   # spacing loosens when tired
         g = self.xh * self.look.gap_xh * (1 + self.rng.normal(0, 0.13 + 0.29 * m)) * k
-        return max(self.xh * 0.35, g)
+        return max(self.xh * 0.6, g)       # tighter than this reads as one word
 
     def slope_dy(self, w):
         return 0.0

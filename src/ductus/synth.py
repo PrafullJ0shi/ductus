@@ -193,9 +193,10 @@ class Synthesizer:
                         r = read_words[k] if read_words is not None else ""
                         # size by mean letter width: the row-profile x-height is fooled by ascenders
                         wxh = float(np.clip(cw * getattr(eng, "xh_per_cw", 1.15), 0.5 * xh, 1.5 * xh))
+                        wbl = bl
                         if getattr(eng, "per_word_xh", False):
-                            wxh = word_xheight(sub, wxh)
-                        cand = WordImage(w, sub, bl, wxh, 1.0 - err, r)
+                            wbl, wxh = word_band(sub, wxh, bl)   # RNN lines drift: own baseline and size
+                        cand = WordImage(w, sub, wbl, wxh, 1.0 - err, r)
                         if wid not in best or cand.score > best[wid].score:
                             best[wid] = cand
             pending = [(wid, w) for wid, w in pending
@@ -208,13 +209,28 @@ class Synthesizer:
         return [best[i] for i in range(len(texts))]
 
 
+def word_band(alpha: np.ndarray, line_xh: float, line_bl: float) -> tuple[float, float]:
+    """(baseline, x-height) of one word from its own ink. Rows are scored by how many strokes
+    cross them; the x-band is the contiguous run of rows around the busiest one that keeps at
+    least half the peak crossings (ascenders and descenders carry one or two strokes). Falls back
+    to the line values when the word is too small to measure."""
+    m = alpha > 0.35
+    runs = (np.diff(m.astype(np.int8), axis=1) == 1).sum(axis=1).astype(np.float32)
+    if runs.max() < 2:
+        return line_bl, line_xh
+    runs = np.convolve(runs, np.ones(3) / 3, mode="same")
+    pk = int(np.argmax(runs)); thr = 0.5 * runs[pk]
+    t = pk
+    while t > 0 and runs[t - 1] >= thr:
+        t -= 1
+    b = pk
+    while b < len(runs) - 1 and runs[b + 1] >= thr:
+        b += 1
+    h = float(b - t + 1)
+    if not (0.55 * line_xh <= h <= 1.6 * line_xh):
+        return line_bl, float(np.clip(h, 0.65 * line_xh, 1.5 * line_xh))
+    return float(b + 1), h
+
+
 def word_xheight(alpha: np.ndarray, line_xh: float) -> float:
-    """x-height of one word: the height of its dense band of rows (ascenders and descenders
-    are thin and fall below the cut). Kept within 0.65-1.5x of the line estimate."""
-    prof = (alpha > 0.35).sum(axis=1).astype(np.float32)
-    if prof.max() <= 0:
-        return line_xh
-    prof = np.convolve(prof, np.ones(3) / 3, mode="same")
-    band = np.where(prof >= 0.45 * prof.max())[0]
-    h = float(band[-1] - band[0] + 1) if len(band) else line_xh
-    return float(np.clip(h, 0.65 * line_xh, 1.5 * line_xh))
+    return word_band(alpha, line_xh, 0.0)[1]
