@@ -162,8 +162,9 @@ of the user's notes by `python -m ductus.realism.calibrate` (`calibration.json`,
   grid paper by default). The older model stays in `photo.py`.
 
 Before/after images: [loose A4 photo](../examples/photo_a4_compare.jpg),
-[notebook photo](../examples/photo_notebook_compare.jpg), [notebook (package demo)](../examples/phone_compare.jpg),
-[human errors](../examples/human_errors_compare.png), [pens](../examples/ink_pens.png).
+[notebook photo](../examples/photo_notebook_compare.jpg). (The package's own demo images used
+strokes from the 2016 RNN, whose looped f and stylish r are not what ductus aims for, so they
+are not shipped.)
 
 Evidence numbers in the tables below refer to the "Further sources" list in this section.
 

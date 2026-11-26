@@ -132,8 +132,6 @@ Full reference: [docs/CLI.md](docs/CLI.md). Markup cheat sheet: [docs/CLI.md#mar
 
 ## Pens
 
-![The same passage in each pen](docs/assets/pens.jpg)
-
 Each pen has its own colour, line width, pressure response and texture. The ink model
 renders the pen's path at 600 dpi and deposits ink by speed, pauses and overlaps, then
 mixes it with the paper by the Beer-Lambert law. Details in [docs/INK.md](docs/INK.md).
