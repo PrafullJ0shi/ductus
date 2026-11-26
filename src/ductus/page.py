@@ -62,6 +62,9 @@ def add_corrections(blocks: list[Block], rate: float, rng: random.Random) -> Non
 @dataclass
 class Options:
     style: str | None = None        # None: "upright", the plainest print-like preset
+    engine: str = "default"          # default (rnn if installed, else diffusion) | rnn | diffusion | auto
+    rnn_style: int | None = 4        # built-in RNN writer style 0-7 (None = unprimed)
+    rnn_bias: float = 1.5            # RNN sampling bias: higher is neater
     legibility: str = "strict"       # strict (default: line + word read-back) | loose (personal hands, old behaviour)
     plain: str = "frbdhklt"          # letters that must use the plain form (no looped f/r/ascenders); "" = allow loops
     look: str = "natural"            # neat | natural | messy | profile
@@ -98,12 +101,53 @@ class Writer:
     """Keeps the models loaded between pages."""
 
     def __init__(self, steps: int = 25, verify: bool = True):
-        from .engines.diffbrush import DiffBrushEngine
-        self.engine = DiffBrushEngine(steps=steps)
+        self.steps = steps
+        self._diff = None
+        self._rnn = {}
         self.reader = None
         if verify:
             from .verify import Reader
             self.reader = Reader()
+
+    @property
+    def engine(self):
+        """The diffusion engine (style copying), loaded on first use."""
+        if self._diff is None:
+            from .engines.diffbrush import DiffBrushEngine
+            self._diff = DiffBrushEngine(steps=self.steps)
+        return self._diff
+
+    def rnn(self, style=4, bias: float = 1.5):
+        key = (style, bias)
+        if key not in self._rnn:
+            from .engines.rnn import RNNEngine
+            self._rnn[key] = RNNEngine(style=style, bias=bias)
+        return self._rnn[key]
+
+    def engines(self, o: "Options"):
+        """(primary, fallback, primary_rounds) for the engine mode.
+        default/rnn: plain, readable letters from the Graves RNN; words it cannot write or that
+        still fail the read-back go to diffusion. diffusion: letter shapes copied from the
+        reference image. auto: diffusion first, the RNN for words that do not read."""
+        from .engines import rnn as R
+        mode = o.engine
+        if mode == "rnn" or (mode == "default" and R.available()):
+            if not R.available():
+                raise RuntimeError("--engine rnn needs the RNN model; see src/ductus/engines/rnn/__init__.py")
+            return self.rnn(o.rnn_style, o.rnn_bias), self.engine_lazy(), 4
+        if mode == "auto" and R.available():
+            return self.engine, self.rnn(o.rnn_style, o.rnn_bias), 2
+        return self.engine, None, 99
+
+    def engine_lazy(self):
+        w = self
+
+        class _Lazy:
+            name = "diffusion"
+
+            def generate(self, *a, **k):
+                return w.engine.generate(*a, **k)
+        return _Lazy()
 
     def write(self, text: str, o: Options) -> Result:
         t0 = time.time()
@@ -153,9 +197,10 @@ class Writer:
             if len(idx) == 0:
                 continue
             ref = refs[ci % len(refs)]
-            syn = Synthesizer(self.engine, ref, self.reader if o.verify else None, max_cer=max_cer,
+            prim, fb, pr = self.engines(o)
+            syn = Synthesizer(prim, ref, self.reader if o.verify else None, fallback=fb, primary_rounds=pr, max_cer=max_cer,
                               loose=personal, seed=o.seed * 1000 + ci * 37, log=o.log,
-                              strict=strict, rounds=5 if o.look == "neat" else 4, plain=o.plain)
+                              strict=strict, rounds=(pr + 2) if fb is not None and pr < 99 else (5 if o.look == "neat" else 4), plain=o.plain)
             words += syn.run([texts[i] for i in idx])
             for k in stats:
                 stats[k] += syn.stats.get(k, 0)
@@ -272,9 +317,10 @@ def write_lines(writer: "Writer", lines: list[str], o: Options) -> tuple[list[np
     per_line = [[w.text for w in markup.block_words(b)] for b in blocks]
     flat = [w for ws in per_line for w in ws]
     max_cer = _max_cer(o, prof)
-    syn = Synthesizer(writer.engine, refs[0], writer.reader if o.verify else None, max_cer=max_cer,
+    prim, fb, pr = writer.engines(o)
+    syn = Synthesizer(prim, refs[0], writer.reader if o.verify else None, fallback=fb, primary_rounds=pr, max_cer=max_cer,
                       loose=bool(prof), seed=o.seed, log=o.log,
-                      strict=o.legibility != "loose", rounds=5 if o.look == "neat" else 4, plain=o.plain)
+                      strict=o.legibility != "loose", rounds=(pr + 2) if fb is not None and pr < 99 else (5 if o.look == "neat" else 4), plain=o.plain)
     ckey = _cache_key(["lines"] + flat, o, max_cer, o.steps)
     cached = _cache_get(ckey) if o.cache else None
     if cached is not None:
@@ -331,7 +377,7 @@ def _cache_key(texts, o, max_cer, steps) -> str:
         f = sp / "profile.json" if sp.is_dir() else sp
         if f.exists():
             sig = [o.style, hashlib.sha1(f.read_bytes()).hexdigest()]
-    k = json.dumps([CACHE_VERSION, texts, sig, o.look, o.seed, max_cer, o.verify, steps, o.mode, o.plain, o.legibility], default=str)
+    k = json.dumps([CACHE_VERSION, o.engine, o.rnn_style, o.rnn_bias, texts, sig, o.look, o.seed, max_cer, o.verify, steps, o.mode, o.plain, o.legibility], default=str)
     return hashlib.sha1(k.encode()).hexdigest()
 
 

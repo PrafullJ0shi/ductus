@@ -67,6 +67,8 @@ class Synthesizer:
     batch: int = 8
     seed: int = 0
     log: callable = print
+    fallback: object | None = None # second engine, used from round primary_rounds on and for
+    primary_rounds: int = 99       # words the primary cannot write (engine.supported)
     plain: str = "fr" + "bdhklt"   # letters that must use the plain form (no closed loops); "" = off
     stats: dict = field(default_factory=dict)
 
@@ -116,12 +118,18 @@ class Synthesizer:
         for rnd in range(self.rounds):
             if not pending:
                 break
-            carriers = self._carriers(pending, rng)
-            self.log(f"round {rnd + 1}: {len(pending)} words in {len(carriers)} lines")
+            eng = self.engine if (rnd < self.primary_rounds or self.fallback is None) else self.fallback
+            todo = pending
+            if eng is self.engine and self.fallback is not None and hasattr(eng, "supported"):
+                todo = [(wid, w) for wid, w in pending if eng.supported(w)]   # others wait for the fallback
+                if not todo:
+                    eng, todo = self.fallback, pending
+            carriers = self._carriers(todo, rng)
+            self.log(f"round {rnd + 1} ({getattr(eng, 'name', 'diffusion')}): {len(todo)} words in {len(carriers)} lines")
             for i in range(0, len(carriers), self.batch):
                 chunk = carriers[i:i + self.batch]
                 seed += 1
-                imgs = self.engine.generate([c[1] for c in chunk], self.style_img, seed=seed)
+                imgs = eng.generate([c[1] for c in chunk], self.style_img, seed=seed)
                 gen_lines += len(chunk)
                 for (group, full), img in zip(chunk, imgs):
                     a = clean_line(img)
