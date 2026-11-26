@@ -36,6 +36,7 @@ add the habits of a person writing on paper.
 - **Plain, readable letters.** The default hand is plain print-like writing. A letter-shape
   check re-writes words whose f, r or ascenders come out looped or calligraphic, and every
   word must pass an OCR read-back, so messiness stays in spacing, baseline and shape.
+  ![Before and after the plain-letter check](docs/assets/letterforms-before-after.png)
 - **Real ink.** Ballpoint, gel, fountain pen or pencil, with speed-dependent density, blobs,
   skips, rough edges and darker overlaps ([docs/INK.md](docs/INK.md)).
 - **Paper and camera.** White A4 (default), ruled or 5 mm grid. `--photo a4` (a loose sheet

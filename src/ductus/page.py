@@ -324,7 +324,14 @@ def _cache_dir():
 
 def _cache_key(texts, o, max_cer, steps) -> str:
     import hashlib, json
-    k = json.dumps([CACHE_VERSION, texts, o.style, o.look, o.seed, max_cer, o.verify, steps, o.mode, o.plain, o.legibility], default=str)
+    sig = o.style
+    if o.style:
+        from pathlib import Path
+        sp = Path(o.style)
+        f = sp / "profile.json" if sp.is_dir() else sp
+        if f.exists():
+            sig = [o.style, hashlib.sha1(f.read_bytes()).hexdigest()]
+    k = json.dumps([CACHE_VERSION, texts, sig, o.look, o.seed, max_cer, o.verify, steps, o.mode, o.plain, o.legibility], default=str)
     return hashlib.sha1(k.encode()).hexdigest()
 
 
