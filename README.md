@@ -10,7 +10,7 @@
   <img alt="Python 3.10+" src="https://img.shields.io/badge/python-3.10%2B-1C2A6E">
   <img alt="Runs on CPU" src="https://img.shields.io/badge/runs%20on-CPU-1C2A6E">
   <img alt="Engines: Graves RNN and DiffBrush" src="https://img.shields.io/badge/engines-Graves%20RNN%20%2B%20DiffBrush-1C2A6E">
-  <a href="docs/BENCHMARK.md"><img alt="Benchmark: OCR CER 0.113 on 4 test lines" src="https://img.shields.io/badge/OCR%20CER-0.113%20(4%20lines)-1C2A6E"></a>
+  <a href="docs/BENCHMARK.md"><img alt="Benchmark: OCR CER 0.093 on 4 test lines" src="https://img.shields.io/badge/OCR%20CER-0.093%20(4%20lines)-1C2A6E"></a>
 </p>
 
 **ductus** turns text into handwritten A4 pages: notes with arrows and ticks, worked maths
@@ -184,7 +184,8 @@ machine was less loaded in round 2, so part of the speed gain is not from the co
 |---|---|---|---|---|
 | Handwriting font (Caveat, via text-to-handwriting) | **0.000** | 0.000 | 46% of shapes | 0.7 |
 | sjvasquez RNN (2018) | 0.084 | 1.500 | 0% | 2.7 |
-| **ductus, current (RNN letters + diffusion fallback)** | 0.113 | 0.227 | 0% | 23 |
+| **ductus, current (cursive r/f, template capitals)** | 0.093 | 0.136 | 0% | 38 |
+| ductus, round 2 (RNN letters + diffusion fallback) | 0.113 | 0.227 | 0% | 23 |
 | Grzego RNN (2018) | 0.124 | 0.591 | 0% | 5.2 |
 | ductus, round 1 (diffusion letters) | 0.148 | 0.000 | 0% | 390 |
 
