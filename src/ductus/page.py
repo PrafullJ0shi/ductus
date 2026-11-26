@@ -63,7 +63,7 @@ def add_corrections(blocks: list[Block], rate: float, rng: random.Random) -> Non
 class Options:
     style: str | None = None        # None: "upright", the plainest print-like preset
     engine: str = "default"          # default (rnn if installed, else diffusion) | rnn | diffusion | auto
-    rnn_style: int | None = 4        # built-in RNN writer style 0-7 (None = unprimed)
+    rnn_style: int | None = 1        # built-in RNN writer style 0-7; 1 has plain print r, f and l
     rnn_bias: float = 1.5            # RNN sampling bias: higher is neater
     legibility: str = "strict"       # strict (default: line + word read-back) | loose (personal hands, old behaviour)
     plain: str = "abcdefghijklmnopqrstuvwxyz"          # letters that must use the plain form (no looped f/r/ascenders); "" = allow loops
@@ -117,7 +117,7 @@ class Writer:
             self._diff = DiffBrushEngine(steps=self.steps)
         return self._diff
 
-    def rnn(self, style=4, bias: float = 1.5):
+    def rnn(self, style=1, bias: float = 1.5):
         key = (style, bias)
         if key not in self._rnn:
             from .engines.rnn import RNNEngine

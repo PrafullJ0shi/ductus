@@ -97,7 +97,7 @@ class RNNEngine:
     xh_per_cw = 0.86     # x-height per mean character advance (diffusion lines: 1.15)
     per_word_xh = True   # RNN letter size drifts within a line: measure each word
 
-    def __init__(self, style: int | None = 4, bias: float = 1.5, python: str | None = None):
+    def __init__(self, style: int | None = 1, bias: float = 1.5, python: str | None = None):
         self.style, self.bias = style, bias
         self.python = python or os.environ.get("DUCTUS_RNN_PYTHON") or _find_python()
         self.proc = None

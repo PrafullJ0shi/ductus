@@ -98,7 +98,7 @@ def main(argv=None):
     w.add_argument("--engine", default="default", choices=["default", "rnn", "diffusion", "auto"],
                    help="default: RNN letters (plain, readable, fast) when installed, else diffusion; "
                         "diffusion: letter shapes copied from --style; auto: diffusion, RNN for words that do not read")
-    w.add_argument("--rnn-style", type=int, default=4, help="built-in RNN writer style 0-7")
+    w.add_argument("--rnn-style", type=int, default=1, help="built-in RNN writer style 0-7 (1: plain print letters)")
     w.add_argument("--rnn-bias", type=float, default=1.5, help="RNN neatness (higher = neater)")
     w.add_argument("--legibility", default="strict", choices=["strict", "loose"],
                    help="strict (default): every word must pass the line and word OCR read-back; loose: only catch wrong or missing words")
