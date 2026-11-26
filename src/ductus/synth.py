@@ -171,7 +171,7 @@ class Synthesizer:
                     for n, (wid, w, sub, _, k, ratio) in enumerate(items):
                         if read_words is not None:
                             e_line = self._accept(w, read_words[k])
-                            e_word = self._accept(w, word_reads[n]) if len(normalise(w)) >= 3 else e_line
+                            e_word = self._accept(w, word_reads[n]) if (len(normalise(w)) >= 3 or any(c.isdigit() for c in w)) else e_line
                             err = max(e_line, e_word) if self.strict else 0.5 * (e_line + e_word)
                         else:
                             err = 0.0

@@ -72,11 +72,23 @@ def main():
             for x0, x1 in word_spans(c, max(xh, 6)):
                 crops.append((255 * (1 - np.clip(c[:, max(0, x0 - 4):x1 + 4], 0, 1))).astype(np.uint8))
     print(len(crops), "word crops", file=sys.stderr)
+    import json
+    from ductus.verify import cer
+    cache = out / "reads.json"
+    reads = json.loads(cache.read_text()) if cache.exists() else []
+    if len(reads) != len(crops):
+        reads = []
+        for i in range(0, len(crops), 16):
+            reads += W.reader.read(crops[i:i + 16])
+        out.mkdir(parents=True, exist_ok=True); cache.write_text(json.dumps(reads))
     his = {}
-    for i in range(0, len(crops), 16):
-        for crop, t in zip(crops[i:i + 16], W.reader.read(crops[i:i + 16])):
+    for exact in (True, False):          # exact reads first, then near misses on longer words
+        for crop, t in zip(crops, reads):
             k = norm(t)
-            if k in targets and len(his.get(k, [])) < a.per:
+            if not exact and k not in targets:
+                near = [w for w in targets if len(w) >= 4 and cer(w, k) <= 0.25]
+                k = near[0] if near else k
+            if k in targets and len(his.get(k, [])) < a.per and not any(c is crop for c in his.get(k, [])):
                 his.setdefault(k, []).append(crop)
     # ours: the same words, default engine and checks
     from ductus.synth import Synthesizer
@@ -102,7 +114,7 @@ def main():
         left = cv2.copyMakeBorder(left, 0, 0, 0, max(0, 3 * 220 - left.shape[1]), cv2.BORDER_CONSTANT, value=255)[:, :3 * 220]
         sep = np.full((72, 20), 255, np.uint8); sep[:, 9:11] = 170
         right = tile(ours[k]) if k in ours else np.full((72, 120), 240, np.uint8)
-        right = cv2.copyMakeBorder(right, 0, 0, 0, max(0, 260 - right.shape[1]), cv2.BORDER_CONSTANT, value=255)[:, :260]
+        right = cv2.copyMakeBorder(right, 0, 0, 0, max(0, 360 - right.shape[1]), cv2.BORDER_CONSTANT, value=255)[:, :360]
         rows.append(np.hstack([lab, left, sep, right]))
     head = np.full((40, rows[0].shape[1]), 255, np.uint8)
     cv2.putText(head, "his pages (up to 3)", (160, 28), cv2.FONT_HERSHEY_SIMPLEX, 0.7, 60, 2)
