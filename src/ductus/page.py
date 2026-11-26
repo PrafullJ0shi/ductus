@@ -61,7 +61,8 @@ def add_corrections(blocks: list[Block], rate: float, rng: random.Random) -> Non
 
 @dataclass
 class Options:
-    style: str | None = None        # None: "upright" for the neat look, "quick" otherwise
+    style: str | None = None        # None: "upright", the plainest print-like preset
+    plain: str = "frbdhklt"          # letters that must use the plain form (no looped f/r/ascenders); "" = allow loops
     look: str = "natural"            # neat | natural | messy | profile
     mode: str = "plain"              # plain | notes | maths
     paper: str | None = None         # white | ruled | grid (default white; grid for a notebook photo)
@@ -105,7 +106,7 @@ class Writer:
 
     def write(self, text: str, o: Options) -> Result:
         t0 = time.time()
-        refs, prof = load_style(o.style or ("upright" if o.look == "neat" else "quick"))
+        refs, prof = load_style(o.style or "upright")
         look = Look.preset(o.look if o.look != "profile" else "natural")
         if prof:
             pl = prof.get("look", {})
@@ -151,7 +152,7 @@ class Writer:
             ref = refs[ci % len(refs)]
             syn = Synthesizer(self.engine, ref, self.reader if o.verify else None, max_cer=max_cer,
                               loose=personal, seed=o.seed * 1000 + ci * 37, log=o.log,
-                              strict=not personal, rounds=5 if o.look == "neat" else 4)
+                              strict=not personal, rounds=5 if o.look == "neat" else 4, plain=o.plain)
             words += syn.run([texts[i] for i in idx])
             for k in stats:
                 stats[k] += syn.stats.get(k, 0)
@@ -256,7 +257,7 @@ def write_lines(writer: "Writer", lines: list[str], o: Options) -> tuple[list[np
     from .render import ink_coverage, compose
     from .segment import stroke_width, tight_bbox
     t0 = time.time()
-    refs, prof = load_style(o.style)
+    refs, prof = load_style(o.style or "upright")
     look = Look.preset(o.look if o.look != "profile" else "natural")
     if prof:
         for k, v in prof.get("look", {}).items():
@@ -270,7 +271,7 @@ def write_lines(writer: "Writer", lines: list[str], o: Options) -> tuple[list[np
     max_cer = o.max_cer if o.max_cer is not None else (0.5 if prof else (0.15 if o.look == "neat" else 0.25))
     syn = Synthesizer(writer.engine, refs[0], writer.reader if o.verify else None, max_cer=max_cer,
                       loose=bool(prof), seed=o.seed, log=o.log,
-                      strict=not prof, rounds=5 if o.look == "neat" else 4)
+                      strict=not prof, rounds=5 if o.look == "neat" else 4, plain=o.plain)
     ckey = _cache_key(["lines"] + flat, o, max_cer, o.steps)
     cached = _cache_get(ckey) if o.cache else None
     if cached is not None:
@@ -320,7 +321,7 @@ def _cache_dir():
 
 def _cache_key(texts, o, max_cer, steps) -> str:
     import hashlib, json
-    k = json.dumps([CACHE_VERSION, texts, o.style, o.look, o.seed, max_cer, o.verify, steps, o.mode], default=str)
+    k = json.dumps([CACHE_VERSION, texts, o.style, o.look, o.seed, max_cer, o.verify, steps, o.mode, o.plain], default=str)
     return hashlib.sha1(k.encode()).hexdigest()
 
 

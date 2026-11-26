@@ -14,6 +14,7 @@ import numpy as np
 
 from .segment import split_by_length, clean_line, split_words, baseline_and_xheight, tight_bbox
 from .verify import cer, normalise
+from .letterforms import flourishes
 
 FILLER = ("and the of with over into from about under while still both more when then "
           "light river window paper simple garden morning letter quiet number travel").split()
@@ -66,6 +67,7 @@ class Synthesizer:
     batch: int = 8
     seed: int = 0
     log: callable = print
+    plain: str = "fr" + "bdhklt"   # letters that must use the plain form (no closed loops); "" = off
     stats: dict = field(default_factory=dict)
 
     def _carriers(self, words: list[tuple[int, str]], rng: random.Random):
@@ -106,6 +108,7 @@ class Synthesizer:
     def run(self, texts: list[str]) -> list[WordImage]:
         """Return one WordImage per input word (same order)."""
         rng = random.Random(self.seed)
+        self.stats = {}
         best: dict[int, WordImage] = {}
         pending = list(enumerate(texts))
         seed = self.seed
@@ -160,6 +163,11 @@ class Synthesizer:
                         lo, hi = (0.55, 1.9) if self.strict else (0.4, 2.4)
                         if not (lo <= ratio <= hi) and len(w) >= 3:
                             err = max(err, 1.0)          # the split put this word in the wrong span
+                        if self.plain and any(c in self.plain for c in w):
+                            fl = flourishes(sub, w, bl, float(np.clip(cw * 1.15, 0.5 * xh, 1.5 * xh)), set(self.plain))
+                            if fl:
+                                err = max(err, max(0.6, self.max_cer + 0.05))   # looped f/r etc: write it again
+                                self.stats["flourish_rejects"] = self.stats.get("flourish_rejects", 0) + 1
                         r = read_words[k] if read_words is not None else ""
                         # size by mean letter width: the row-profile x-height is fooled by ascenders
                         cand = WordImage(w, sub, bl, float(np.clip(cw * 1.15, 0.5 * xh, 1.5 * xh)), 1.0 - err, r)
@@ -167,7 +175,7 @@ class Synthesizer:
                             best[wid] = cand
             pending = [(wid, w) for wid, w in pending
                        if wid not in best or (1.0 - best[wid].score) > self.max_cer]
-        self.stats = {"lines_generated": gen_lines, "words": len(texts),
+        self.stats = {"flourish_rejects": self.stats.get("flourish_rejects", 0), "lines_generated": gen_lines, "words": len(texts),
                       "still_failing": len(pending), "rounds_used": rnd + 1}
         missing = [wid for wid, _ in enumerate(texts) if wid not in best]
         if missing:

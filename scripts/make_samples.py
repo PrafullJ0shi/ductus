@@ -19,16 +19,16 @@ EX = Path(__file__).resolve().parents[1] / "examples"
 JOBS = [
     # name, text file, options
     ("intro", "intro.txt", dict(mode="plain", look="natural", style="slant", seed=11)),
-    ("definitions", "definitions.txt", dict(mode="notes", look="natural", style="quick", seed=3)),
+    ("definitions", "definitions.txt", dict(mode="notes", look="natural", seed=3)),
     ("maths", "maths.txt", dict(mode="maths", look="natural", style="upright", seed=5)),
     ("checklist", "checklist.txt", dict(mode="notes", look="natural", style="round", seed=9)),
     ("intro-neat", "intro.txt", dict(mode="plain", look="neat", style="upright", seed=2)),
-    ("intro-messy", "intro.txt", dict(mode="plain", look="messy", style="quick", seed=4)),
+    ("intro-messy", "intro.txt", dict(mode="plain", look="messy", seed=4)),
     ("notes-grid-blue", "notes-statistics.txt", dict(mode="notes", look="natural", style="loose",
                                                     paper="grid", seed=6)),
     ("checklist-ruled-black", "checklist.txt", dict(mode="notes", look="natural", style="slant",
                                                    paper="ruled", pen="black-ballpoint", seed=8)),
-    ("notes-photo", "notes-statistics.txt", dict(mode="notes", look="messy", style="quick",
+    ("notes-photo", "notes-statistics.txt", dict(mode="notes", look="messy",
                                                 paper="grid", photo=True, seed=10)),
 ]
 

@@ -1,6 +1,6 @@
 """ductus command line.
 
-  ductus write  notes.txt -o out/page [--style quick|<profile dir>|<line.png>] [--look neat|natural|messy]
+  ductus write  notes.txt -o out/page [--style upright|<profile dir>|<line.png>] [--look neat|natural|messy]
                 [--mode plain|notes|maths] [--paper white|ruled|grid] [--photo [a4|notebook]] [--svg] [--animate]
   ductus style  photo1.jpg photo2.jpg ... -o styles/my-hand      build a personal style profile
   ductus presets                                                list built-in styles
@@ -21,7 +21,7 @@ def cmd_write(a):
     if a.text:
         text = a.text
     o = Options(style=a.style, look=a.look, mode=a.mode, paper=a.paper, photo=a.photo, ink=a.ink,
-                seed=a.seed, steps=a.steps, verify=not a.no_verify, max_cer=a.max_cer, cache=not a.no_cache,
+                seed=a.seed, steps=a.steps, verify=not a.no_verify, max_cer=a.max_cer, cache=not a.no_cache, plain="" if a.allow_loops else "frbdhklt",
                 corrections=a.corrections, pen=a.pen, tip=a.tip, weight=a.weight,
                 flat_ink=a.flat_ink, ink_model=a.ink_model, humanize=a.humanize, size=a.size,
                 log=(lambda *x: None) if a.quiet else (lambda *x: print(*x, file=sys.stderr)))
@@ -72,7 +72,7 @@ def main(argv=None):
     w.add_argument("input", nargs="?", default="-", help="text file (markup allowed) or - for stdin")
     w.add_argument("--text", help="text given inline instead of a file")
     w.add_argument("-o", "--out", default="page", help="output path without extension")
-    w.add_argument("--style", help="preset name, a line image, or a profile folder (default: upright for --look neat, quick otherwise)")
+    w.add_argument("--style", help="preset name, a line image, or a profile folder (default: upright, a plain print-like hand)")
     w.add_argument("--look", default="natural", choices=["neat", "natural", "messy", "profile"])
     w.add_argument("--mode", default="plain", choices=["plain", "notes", "maths"])
     w.add_argument("--paper", default=None, choices=["white", "ruled", "grid"],
@@ -95,6 +95,8 @@ def main(argv=None):
     w.add_argument("--max-cer", type=float, help="OCR acceptance threshold")
     w.add_argument("--corrections", type=float, help="share of words written wrong then struck out")
     w.add_argument("--no-verify", action="store_true", help="skip the OCR read-back check")
+    w.add_argument("--allow-loops", action="store_true",
+                   help="keep looped f, r and ascenders (default re-writes them in the plain form)")
     w.add_argument("--no-cache", action="store_true", help="always generate words afresh (default reuses ~/.cache/ductus)")
     w.add_argument("--no-pdf", action="store_true")
     w.add_argument("--svg", action="store_true", help="also write a vector SVG")
