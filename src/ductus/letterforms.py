@@ -23,6 +23,7 @@ NO_LOOP = {
     "x": set("cfhijklmnrstuvwxyz"),
 }
 ALL = set("abcdefghijklmnopqrstuvwxyz")
+NEVER_LOOP = set("flr")       # the target hand writes these plain whatever the statistics say
 PLAIN_DEFAULT = ALL
 
 
@@ -49,7 +50,7 @@ def flourishes(alpha: np.ndarray, text: str, baseline: float, xh: float,
     """Letters of ``text`` drawn with a closed loop the plain form does not have.
 
     ``profile``: per-letter loop rates measured from the writer's own pages
-    (scripts/letter_glyphs.py -> letters.json). With 3 or more samples of a letter, a loop in a
+    (scripts/letter_glyphs.py -> letters.json). With 5 or more samples of a letter (not f, l or r), a loop in a
     zone is allowed when the writer uses it in at least 20% of samples; everything else follows
     the plain-print rules above."""
     cols = np.where((alpha > 0.35).any(axis=0))[0]
@@ -82,7 +83,8 @@ def _forbidden(ch: str, zone: str, profile: dict | None) -> bool:
     # the writer's own samples can only allow a loop (he uses it in at least 20% of samples);
     # they never forbid one the plain form has, since a missed counter in a small photo crop
     # would otherwise reject correct letters
-    if profile and ch in profile and profile[ch].get("n", 0) >= 3 and profile[ch].get(zone, 0.0) >= 0.2:
+    if (profile and ch not in NEVER_LOOP and ch in profile and profile[ch].get("n", 0) >= 5
+            and profile[ch].get(zone, 0.0) >= 0.2):
         return False
     if not ch.isalpha() or not ch.islower():
         return False

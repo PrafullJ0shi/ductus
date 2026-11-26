@@ -47,7 +47,8 @@ def looped_l():
 def test_looped_l_flagged_by_default_and_profile_can_allow_it():
     a = looped_l()
     assert flourishes(a, "l", 44, 14) == ["l"]
-    allow = {"l": {"n": 5, "asc": 0.6, "x": 0.0, "desc": 0.0}}
-    assert flourishes(a, "l", 44, 14, profile=allow) == []
+    allow = {"l": {"n": 5, "asc": 0.6, "x": 0.0, "desc": 0.0}, "k": {"n": 5, "asc": 0.6, "x": 0.0, "desc": 0.0}}
+    assert flourishes(a, "l", 44, 14, profile=allow) == ["l"]      # l, f, r are always plain
+    assert flourishes(a, "k", 44, 14, profile=allow) == []
     never = {"l": {"n": 5, "asc": 0.0, "x": 0.0, "desc": 0.0}}
     assert flourishes(a, "l", 44, 14, profile=never) == ["l"]
