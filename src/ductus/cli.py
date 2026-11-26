@@ -21,7 +21,7 @@ def cmd_write(a):
     if a.text:
         text = a.text
     o = Options(style=a.style, look=a.look, mode=a.mode, paper=a.paper, photo=a.photo, ink=a.ink,
-                seed=a.seed, steps=a.steps, verify=not a.no_verify, max_cer=a.max_cer, cache=not a.no_cache, plain="" if a.allow_loops else "frbdhklt",
+                seed=a.seed, steps=a.steps, verify=not a.no_verify, max_cer=a.max_cer, cache=not a.no_cache, plain="" if a.allow_loops else "frbdhklt", legibility=a.legibility,
                 corrections=a.corrections, pen=a.pen, tip=a.tip, weight=a.weight,
                 flat_ink=a.flat_ink, ink_model=a.ink_model, humanize=a.humanize, size=a.size,
                 log=(lambda *x: None) if a.quiet else (lambda *x: print(*x, file=sys.stderr)))
@@ -95,6 +95,8 @@ def main(argv=None):
     w.add_argument("--max-cer", type=float, help="OCR acceptance threshold")
     w.add_argument("--corrections", type=float, help="share of words written wrong then struck out")
     w.add_argument("--no-verify", action="store_true", help="skip the OCR read-back check")
+    w.add_argument("--legibility", default="strict", choices=["strict", "loose"],
+                   help="strict (default): every word must pass the line and word OCR read-back; loose: only catch wrong or missing words")
     w.add_argument("--allow-loops", action="store_true",
                    help="keep looped f, r and ascenders (default re-writes them in the plain form)")
     w.add_argument("--no-cache", action="store_true", help="always generate words afresh (default reuses ~/.cache/ductus)")

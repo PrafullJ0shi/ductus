@@ -62,6 +62,7 @@ def add_corrections(blocks: list[Block], rate: float, rng: random.Random) -> Non
 @dataclass
 class Options:
     style: str | None = None        # None: "upright", the plainest print-like preset
+    legibility: str = "strict"       # strict (default: line + word read-back) | loose (personal hands, old behaviour)
     plain: str = "frbdhklt"          # letters that must use the plain form (no looped f/r/ascenders); "" = allow loops
     look: str = "natural"            # neat | natural | messy | profile
     mode: str = "plain"              # plain | notes | maths
@@ -135,10 +136,12 @@ class Writer:
         word_objs = [w for b in blocks for w in markup.block_words(b)]
         texts = [w.text for w in word_objs]
         personal = bool(prof)
-        # strict check for neat/preset writing; loose check that only catches wrong or
-        # missing words for a personal hand, so it is never pushed towards neatness
-        max_cer = o.max_cer if o.max_cer is not None else (prof.get("max_cer", 0.5) if personal else
-                                                          (0.15 if o.look == "neat" else 0.25))
+        # readable first: every word must pass both the line and the word read-back (strict).
+        # A personal hand is compared case- and punctuation-insensitively and keeps its own
+        # proportions; messiness lives in spacing, baseline and shape, not garbled letters.
+        # legibility="loose" restores the old check that only caught wrong or missing words.
+        max_cer = _max_cer(o, prof)
+        strict = o.legibility != "loose"
         from .synth import Synthesizer
         words = []
         ckey = _cache_key(texts, o, max_cer, o.steps)
@@ -152,7 +155,7 @@ class Writer:
             ref = refs[ci % len(refs)]
             syn = Synthesizer(self.engine, ref, self.reader if o.verify else None, max_cer=max_cer,
                               loose=personal, seed=o.seed * 1000 + ci * 37, log=o.log,
-                              strict=not personal, rounds=5 if o.look == "neat" else 4, plain=o.plain)
+                              strict=strict, rounds=5 if o.look == "neat" else 4, plain=o.plain)
             words += syn.run([texts[i] for i in idx])
             for k in stats:
                 stats[k] += syn.stats.get(k, 0)
@@ -268,10 +271,10 @@ def write_lines(writer: "Writer", lines: list[str], o: Options) -> tuple[list[np
     blocks = [markup.parse(t, o.mode)[0] for t in lines]
     per_line = [[w.text for w in markup.block_words(b)] for b in blocks]
     flat = [w for ws in per_line for w in ws]
-    max_cer = o.max_cer if o.max_cer is not None else (0.5 if prof else (0.15 if o.look == "neat" else 0.25))
+    max_cer = _max_cer(o, prof)
     syn = Synthesizer(writer.engine, refs[0], writer.reader if o.verify else None, max_cer=max_cer,
                       loose=bool(prof), seed=o.seed, log=o.log,
-                      strict=not prof, rounds=5 if o.look == "neat" else 4, plain=o.plain)
+                      strict=o.legibility != "loose", rounds=5 if o.look == "neat" else 4, plain=o.plain)
     ckey = _cache_key(["lines"] + flat, o, max_cer, o.steps)
     cached = _cache_get(ckey) if o.cache else None
     if cached is not None:
@@ -321,7 +324,7 @@ def _cache_dir():
 
 def _cache_key(texts, o, max_cer, steps) -> str:
     import hashlib, json
-    k = json.dumps([CACHE_VERSION, texts, o.style, o.look, o.seed, max_cer, o.verify, steps, o.mode, o.plain], default=str)
+    k = json.dumps([CACHE_VERSION, texts, o.style, o.look, o.seed, max_cer, o.verify, steps, o.mode, o.plain, o.legibility], default=str)
     return hashlib.sha1(k.encode()).hexdigest()
 
 
@@ -351,3 +354,13 @@ def _paper(o: "Options") -> str:
     if o.paper:
         return o.paper
     return "grid" if o.photo and _surface(o.photo) == "notebook" else "white"
+
+
+def _max_cer(o: "Options", prof: dict) -> float:
+    if o.max_cer is not None:
+        return o.max_cer
+    if o.look == "neat":
+        return 0.15
+    if prof and o.legibility == "loose":
+        return prof.get("max_cer", 0.5)
+    return 0.25

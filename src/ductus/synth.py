@@ -160,7 +160,7 @@ class Synthesizer:
                             err = max(e_line, e_word) if self.strict else 0.5 * (e_line + e_word)
                         else:
                             err = 0.0
-                        lo, hi = (0.55, 1.9) if self.strict else (0.4, 2.4)
+                        lo, hi = (0.55, 1.9) if self.strict and not self.loose else (0.4, 2.4)
                         if not (lo <= ratio <= hi) and len(w) >= 3:
                             err = max(err, 1.0)          # the split put this word in the wrong span
                         if self.plain and any(c in self.plain for c in w):
