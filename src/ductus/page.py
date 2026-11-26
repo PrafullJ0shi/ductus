@@ -136,7 +136,8 @@ class Writer:
                 continue
             ref = refs[ci % len(refs)]
             syn = Synthesizer(self.engine, ref, self.reader if o.verify else None, max_cer=max_cer,
-                              loose=personal, seed=o.seed * 1000 + ci * 37, log=o.log)
+                              loose=personal, seed=o.seed * 1000 + ci * 37, log=o.log,
+                              strict=(o.look == "neat" and not personal), rounds=5 if o.look == "neat" else 3)
             words += syn.run([texts[i] for i in idx])
             for k in stats:
                 stats[k] += syn.stats.get(k, 0)
@@ -182,7 +183,8 @@ def write_lines(writer: "Writer", lines: list[str], o: Options) -> tuple[list[np
     flat = [w for ws in per_line for w in ws]
     max_cer = o.max_cer if o.max_cer is not None else (0.5 if prof else (0.15 if o.look == "neat" else 0.25))
     syn = Synthesizer(writer.engine, refs[0], writer.reader if o.verify else None, max_cer=max_cer,
-                      loose=bool(prof), seed=o.seed, log=o.log)
+                      loose=bool(prof), seed=o.seed, log=o.log,
+                      strict=(o.look == "neat" and not prof), rounds=5 if o.look == "neat" else 3)
     words = syn.run(flat)
     out, k = [], 0
     rng = np.random.default_rng(o.seed)

@@ -3,7 +3,7 @@ ship with the DiffBrush repository). For each writer: one real line is the style
 the writer's other lines are the "real" set, and ductus writes the same number of new lines
 in that style. Images are not redistributed; only the scores are reported.
 
-  python scripts/proxy_blind_iam.py /path/to/DiffBrush/test_data /path/to/DiffBrush/data/wikitext103.te out_dir
+  python scripts/proxy_blind_iam.py TEST_DATA WIKITEXT OUT [writers] [look] [lines_per_writer]
 """
 import random, sys
 from pathlib import Path
@@ -15,6 +15,7 @@ from ductus.page import Writer, Options, write_lines
 test_data, corpus, out = Path(sys.argv[1]), Path(sys.argv[2]), Path(sys.argv[3])
 writers = sys.argv[4].split(",") if len(sys.argv) > 4 else ["173", "204", "205", "206", "209", "285"]
 look = sys.argv[5] if len(sys.argv) > 5 else "natural"
+per_writer = int(sys.argv[6]) if len(sys.argv) > 6 else 20
 texts = [t.strip() for t in corpus.read_text().splitlines() if 30 <= len(t.strip()) <= 50]
 rng = random.Random(0)
 w = Writer(verify=True)
@@ -27,9 +28,10 @@ for wid in writers:
     (out / "fake").mkdir(parents=True, exist_ok=True)
     (out / "refs").mkdir(parents=True, exist_ok=True)
     cv2.imwrite(str(out / "refs" / f"{wid}.png"), ref)
-    for f, im in imgs[1:]:
+    keep = imgs[1:1 + per_writer]
+    for f, im in keep:
         cv2.imwrite(str(out / "real" / f"{wid}_{f.stem}.png"), im)
-    n = len(imgs) - 1
+    n = len(keep)
     lines = rng.sample(texts, n)
     lines = ["".join(c for c in t if c.isalnum() or c in " .,;:'!?-()") for t in lines]
     o = Options(style=str(out / "refs" / f"{wid}.png"), look=look, seed=int(wid), max_cer=0.5)

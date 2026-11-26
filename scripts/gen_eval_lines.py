@@ -52,12 +52,14 @@ if any(s.startswith("diffbrush") or s.startswith("ductus") for s in systems):
                 imgs.append(g[:, max(0, cols.min() - 8):cols.max() + 8] if len(cols) else g)
         save("diffbrush_raw", imgs, (time.time() - t0) / len(lines), {"style": "quick", "note": "one sample per line, no carriers, no OCR check"})
     w = None
-    for name, look in (("ductus_neat", "neat"), ("ductus_natural", "natural"), ("ductus_noverify", "natural")):
-        if name not in systems:
-            continue
+    for name in [s for s in systems if s.startswith("ductus")]:
+        # ductus_<look>[_<preset>]; ductus_noverify = natural look without the OCR check
+        parts = name.split("_")
+        look = "natural" if parts[1] == "noverify" else parts[1]
+        style = parts[2] if len(parts) > 2 else "quick"
         verify = name != "ductus_noverify"
         if w is None or (w.reader is None) == verify:
             w = Writer(verify=True)
-        o = Options(style="quick", look=look, seed=7, verify=verify, log=lambda *a: print(*a, file=sys.stderr))
+        o = Options(style=style, look=look, seed=7, verify=verify, log=lambda *a: print(*a, file=sys.stderr))
         imgs, st = write_lines(w, lines, o)
         save(name, imgs, st["seconds"] / len(lines), st)

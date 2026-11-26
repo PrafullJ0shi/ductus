@@ -62,6 +62,7 @@ class Synthesizer:
     max_cer: float = 0.25          # neat: 0.15-0.25; personal style: calibrated, looser
     loose: bool = False            # True: compare case/punctuation-insensitively
     rounds: int = 3
+    strict: bool = False           # neat: a word must pass both the line and the word read
     batch: int = 8
     seed: int = 0
     log: callable = print
@@ -150,10 +151,11 @@ class Synthesizer:
                         if read_words is not None:
                             e_line = self._accept(w, read_words[k])
                             e_word = self._accept(w, word_reads[n]) if len(normalise(w)) >= 3 else e_line
-                            err = 0.5 * (e_line + e_word)
+                            err = max(e_line, e_word) if self.strict else 0.5 * (e_line + e_word)
                         else:
                             err = 0.0
-                        if not (0.4 <= ratio <= 2.4) and len(w) >= 3:
+                        lo, hi = (0.55, 1.9) if self.strict else (0.4, 2.4)
+                        if not (lo <= ratio <= hi) and len(w) >= 3:
                             err = max(err, 1.0)          # the split put this word in the wrong span
                         r = read_words[k] if read_words is not None else ""
                         cand = WordImage(w, sub, bl, xh, 1.0 - err, r)
