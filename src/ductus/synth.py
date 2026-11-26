@@ -69,6 +69,7 @@ class Synthesizer:
     log: callable = print
     fallback: object | None = None # second engine, used from round primary_rounds on and for
     primary_rounds: int = 99       # words the primary cannot write (engine.supported)
+    fallback_all: bool = False     # False: fallback rounds only take words the primary cannot write
     letter_profile: dict | None = None  # per-letter loop rates of the writer (letters.json)
     plain: str = "abcdefghijklmnopqrstuvwxyz"   # letters that must use the plain form (no closed loops); "" = off
     stats: dict = field(default_factory=dict)
@@ -104,8 +105,11 @@ class Synthesizer:
         """Acceptance error. TrOCR often drops case and punctuation on its own, so both
         modes compare normalised text; the threshold (max_cer) is what differs."""
         t, r = normalise(target), normalise(read)
-        if not t:                      # pure punctuation such as "1)" or "-"
-            return 0.0 if read.strip() else 1.0
+        if not t:                      # pure punctuation such as "-" or ":"
+            if not read.strip():
+                return 1.0
+            # the crop must not hold a neighbouring word (the read has letters or digits)
+            return 1.0 if normalise(read) else 0.0
         return cer(t, r)
 
     def run(self, texts: list[str]) -> list[WordImage]:
@@ -121,10 +125,16 @@ class Synthesizer:
                 break
             eng = self.engine if (rnd < self.primary_rounds or self.fallback is None) else self.fallback
             todo = pending
+            if eng is self.fallback and not self.fallback_all and hasattr(self.engine, "supported"):
+                todo = [(wid, w) for wid, w in pending if not self.engine.supported(w) or wid not in best]
+                if not todo:
+                    continue
             if eng is self.engine and self.fallback is not None and hasattr(eng, "supported"):
                 todo = [(wid, w) for wid, w in pending if eng.supported(w)]   # others wait for the fallback
                 if not todo:
                     eng, todo = self.fallback, pending
+            if hasattr(eng, "round"):
+                eng.round = rnd                  # the RNN writes neater on later rounds
             carriers = self._carriers(todo, rng)
             self.log(f"round {rnd + 1} ({getattr(eng, 'name', 'diffusion')}): {len(todo)} words in {len(carriers)} lines")
             for i in range(0, len(carriers), self.batch):
@@ -172,6 +182,8 @@ class Synthesizer:
                         lo, hi = (0.55, 1.9) if self.strict and not self.loose else (0.4, 2.4)
                         if not (lo <= ratio <= hi) and len(w) >= 3:
                             err = max(err, 1.0)          # the split put this word in the wrong span
+                        elif len(w) <= 2 and ratio > 2.6:
+                            err = max(err, 1.0)          # a short token whose crop holds more than itself
                         if self.plain and any(c in self.plain for c in w):
                             fl = flourishes(sub, w, bl, float(np.clip(cw * getattr(eng, "xh_per_cw", 1.15), 0.5 * xh, 1.5 * xh)), set(self.plain),
                                             self.letter_profile)

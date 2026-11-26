@@ -102,6 +102,7 @@ class RNNEngine:
         self.python = python or os.environ.get("DUCTUS_RNN_PYTHON") or _find_python()
         self.proc = None
         self.charset: set[str] = set()
+        self.round = 0                 # set by the synthesizer: later rounds sample neater
 
     def _start(self):
         if self.proc is not None:
@@ -129,7 +130,7 @@ class RNNEngine:
     def generate(self, texts: list[str], style_img=None, seed: int = 0) -> list[np.ndarray]:
         out = []
         for i, t in enumerate(texts):
-            st, _ = self.strokes(t, seed=seed * 101 + i)
+            st, _ = self.strokes(t, seed=seed * 101 + i, bias=self.bias + 0.3 * min(self.round, 4))
             out.append(render_line(st, len(t)))
         return out
 
