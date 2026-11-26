@@ -1,5 +1,9 @@
 # ductus compared with other tools
 
+> A second, independent benchmark (7 test lines, against two RNN implementations and a font-based
+> generator) is in [BENCHMARK.md](BENCHMARK.md). On readability ductus was behind there: normalised CER
+> 0.148 on the main lines, against 0.084 (sjvasquez RNN), 0.124 (Grzego RNN) and 0.00 to 0.03 (fonts).
+
 This page compares ductus with every alternative that could be run here without a login or a
 GPU. Every number comes from the scripts in [`scripts/`](../scripts) and can be reproduced.
 Where another tool is better, the table says so.

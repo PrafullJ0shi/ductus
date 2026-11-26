@@ -1,0 +1,4 @@
+Meet me at the library at 5 pm.
+Variance -> mean of squared deviations
+mean = 30/5 = 6 and x^2 = 36
+The quick brown fox jumps over the lazy dog.

@@ -94,6 +94,10 @@ What the numbers say, without spin:
   higher.
 - A handwriting font is more legible than both, and repeats every word identically.
 - ductus is the slowest of the systems compared.
+- A second benchmark ([docs/BENCHMARK.md](docs/BENCHMARK.md)): on 7 test lines ductus
+  (old default hand) had normalised CER 0.148, behind the sjvasquez RNN (0.084), the Grzego RNN
+  (0.124) and handwriting fonts (0.00 to 0.03), and took about 390 s per line on a loaded CPU.
+  It led on capitals (0.000) and had no repeated glyphs.
 - A blind real-versus-generated test on writers the model never saw is not yet at chance; see
   [docs/EVALUATION.md](docs/EVALUATION.md#blind-test).
 

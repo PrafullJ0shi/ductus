@@ -1,0 +1,72 @@
+[
+ {
+  "id": "ductus_natural",
+  "label": "ductus natural",
+  "settings": "CLI default look, preset quick, seed 0",
+  "family": "ductus",
+  "license": "MIT code; DiffBrush weights trained on IAM (research use)",
+  "speed": "389.51 s/line, OCR normCER 0.148"
+ },
+ {
+  "id": "ductus_neat",
+  "label": "ductus neat",
+  "settings": "--look neat (preset upright), seed 0",
+  "family": "ductus",
+  "license": "MIT code; DiffBrush weights trained on IAM (research use)"
+ },
+ {
+  "id": "rnn_b1.5",
+  "label": "Grzego RNN (2018)",
+  "settings": "Graves 2013 model, style 4, bias 1.5",
+  "family": "rnn",
+  "license": "MIT; weights trained on IAM-OnDB",
+  "speed": "5.2 s/line, OCR normCER 0.124"
+ },
+ {
+  "id": "rnn_b0.75",
+  "label": "Grzego RNN (2018)",
+  "settings": "style 4, bias 0.75",
+  "family": "rnn",
+  "license": "MIT; weights trained on IAM-OnDB",
+  "speed": "4.94 s/line, OCR normCER 0.166"
+ },
+ {
+  "id": "hws_b075_s9",
+  "label": "sjvasquez (2018)",
+  "settings": "Graves model, style 9, bias 0.75, TF2 port",
+  "family": "rnn",
+  "license": "no licence file in repo; weights trained on IAM-OnDB",
+  "speed": "2.73 s/line, OCR normCER 0.084"
+ },
+ {
+  "id": "onedm",
+  "label": "One-DM (ECCV 2024)",
+  "settings": "word-level, 50 DDIM steps",
+  "family": "diffusion",
+  "license": "MIT; weights trained on IAM"
+ },
+ {
+  "id": "tth_homemade",
+  "label": "text-to-handwriting",
+  "settings": "site default font Homemade Apple",
+  "family": "font",
+  "license": "MIT site; font Apache-2.0",
+  "speed": "0.79 s/line, OCR normCER 0.03"
+ },
+ {
+  "id": "tth_caveat",
+  "label": "text-to-handwriting",
+  "settings": "font Caveat",
+  "family": "font",
+  "license": "MIT site; font OFL",
+  "speed": "0.7 s/line, OCR normCER 0.0"
+ },
+ {
+  "id": "tth_liujian",
+  "label": "text-to-handwriting",
+  "settings": "font Liu Jian Mao Cao",
+  "family": "font",
+  "license": "MIT site; font OFL",
+  "speed": "0.78 s/line, OCR normCER 0.031"
+ }
+]

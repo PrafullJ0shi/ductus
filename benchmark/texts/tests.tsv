@@ -1,0 +1,8 @@
+id	plain	ductus_markup	ref_ocr
+short	Meet me at the library at 5 pm.	Meet me at the library at 5 pm.	Meet me at the library at 5 pm.
+definition	Variance -> mean of squared deviations	Variance -> mean of squared deviations	Variance -> mean of squared deviations
+maths	mean = 30/5 = 6 and x^2 = 36	mean = {30/5} = 6 and x^2 = 36	mean = 30/5 = 6 and x^2 = 36
+pangram	The quick brown fox jumps over the lazy dog.	The quick brown fox jumps over the lazy dog.	The quick brown fox jumps over the lazy dog.
+caps	BTC NASA HTML GPU ICCV	BTC NASA HTML GPU ICCV	BTC NASA HTML GPU ICCV
+digits	0123456789 and 3.14 and 2026	0123456789 and 3.14 and 2026	0123456789 and 3.14 and 2026
+symbols	% = + ( ) @ & ? ! # : ;	% = + ( ) @ & ? ! # : ;	% = + ( ) @ & ? ! # : ;

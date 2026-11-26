@@ -1,0 +1,7 @@
+short
+definition
+maths
+pangram
+caps
+digits
+symbols
