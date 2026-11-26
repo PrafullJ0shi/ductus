@@ -28,7 +28,7 @@ Known weaknesses, confirmed on our own baseline runs before starting:
 
 | Weakness | Cause |
 |---|---|
-| Capital runs (`BTC`, `AI`) and mid-word capitals (`RupeeClarity`) come out wrong | IAM-OnDB has few of them; the attention window drifts |
+| Capital runs (`BTC`, `AI`) and mid-word capitals (CamelCase names) come out wrong | IAM-OnDB has few of them; the attention window drifts |
 | Limited character set (no `=`, `@`, `$`, `%` in some checkpoints) | training vocabulary |
 | Lines over about 50 characters fall apart | attention and LSTM state drift |
 | Needs manual seed picking | no internal check that the output says what was asked |

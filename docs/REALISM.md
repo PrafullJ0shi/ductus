@@ -6,8 +6,8 @@ its status.
 
 Status: **done** (implemented and on by default where it fits the look), **partial**,
 **deferred** (not yet implemented; reason given). The column *Checked* says whether the
-detail was compared against the user's own photographed pages. Those photos are private and
-are processed only on the user's machine by `ductus style`; checks marked *pending* need
+detail was compared against the writer's own photographed pages. Those photos are private and
+are processed only on the writer's own machine by `ductus style`; checks marked *pending* need
 that run (see [STYLE_GUIDE.md](STYLE_GUIDE.md)).
 
 ## Sources
@@ -61,8 +61,8 @@ that run (see [STYLE_GUIDE.md](STYLE_GUIDE.md)).
 
 | # | Detail | Why / evidence | Implementation | Status | Checked |
 |---|---|---|---|---|---|
-| 18 | Baseline drift and per-line slope | lines are not ruled | per-line slope with random walk; profile measures his slope | done | pending |
-| 19 | Upward drift to the right | his habit (reported by the user) | `slope_deg` negative; measured in a profile | done | pending |
+| 18 | Baseline drift and per-line slope | lines are not ruled | per-line slope with random walk; profile measures the writer's slope | done | pending |
+| 19 | Upward drift to the right | a habit of the writer | `slope_deg` negative; measured in a profile | done | pending |
 | 20 | Words bob on the baseline | motor variability | per-word vertical jitter | done | |
 | 21 | Word spacing varies | inter-word spacing is a habit with variation (NIST 8282 table 1.1) | gap from the reference line, with noise | done | |
 | 22 | Spacing after punctuation inconsistent | habit | `punct_gap`: extra random gap after , . ; : | done | pending |
@@ -75,7 +75,7 @@ that run (see [STYLE_GUIDE.md](STYLE_GUIDE.md)).
 | 29 | Ragged right margin | no justification | random right limit per line | done | |
 | 30 | Indentation habits | lists and definitions hang | hanging indents in notes mode | done | pending |
 | 31 | Slope and pressure change between sessions | pages written on different days | `session`: after a section rule, new slope offset and pressure | done | pending |
-| 32 | Mixed heading sizes | his headings are larger, some much larger | headings 1.45x, sub-headings 1.2x, plus size jitter | done | pending |
+| 32 | Mixed heading sizes | the writer's headings are larger, some much larger | headings 1.45x, sub-headings 1.2x, plus size jitter | done | pending |
 | 33 | Notebook margin line ignored | writers cross the red line | not drawn: margin lines are not part of the paper types yet | deferred | |
 | 34 | Letters touching grid lines | writing is not aligned to the grid | grid is independent of the writing | done | |
 
@@ -146,7 +146,7 @@ from measurements.
 
 The default ink model, the phone capture and the human-error pass come from
 `ductus.realism`. Its capture parameters and ink colour are measured from a real phone photo
-of the user's notes by `python -m ductus.realism.calibrate` (`calibration.json`, status
+of real handwritten notes by `python -m ductus.realism.calibrate` (`calibration.json`, status
 `measured`, 1 photo so far; more photos tighten the estimates). How it is wired in:
 
 - Ink: `--ink-model realism` (default) re-inks the 600 dpi stroke shape with
@@ -261,7 +261,7 @@ Legend: **I** = implemented (function), **D** = deferred (why). Evidence numbers
 | 40 | t-crosses rise to the right and can reach the next letter | I `delayed_strokes` | 13, 6 |
 | 41 | Marks drawn as fast, even-speed strokes with the same pen | I `marks_to_strokes` | 7 |
 | 42 | Hyphenation or squashed half-words at line ends | D: rare in student notes; `squeeze_line_ends` covers it | 6 |
-| 43 | Personal letter variants (two forms of the same letter) learnt from his pages | D: belongs to the style profile (`profile.py`) | 6 |
+| 43 | Personal letter variants (two forms of the same letter) learnt from the writer's pages | D: belongs to the style profile (`profile.py`) | 6 |
 | 44 | Writing speed (and so ink) rises when copying familiar words | D: needs word-frequency timing in the glyph engine | 4 |
 
 #### Phone capture (`realism/phone_capture.py`)
@@ -291,7 +291,7 @@ Legend: **I** = implemented (function), **D** = deferred (why). Evidence numbers
 | 65 | Tone curve and sharpening halos | I (`tone_contrast`, `sharpen`) | 23 |
 | 66 | JPEG with 4:2:0 chroma subsampling at a measured quality | I (`jpeg_quality`) | 29 |
 | 67 | Measurement of all the above from real photos | I `calibrate.py` | 22, 25, 27, 28, 29 |
-| 68 | Motion blur from a hand-held shot | D: phones use short exposures in good light; add if his photos show it | 21 |
+| 68 | Motion blur from a hand-held shot | D: phones use short exposures in good light; add if the writer's photos show it | 21 |
 | 69 | Finger or thumb at the page edge | D: easy to add to `_shadow_polygon`; not seen as common | — |
 | 70 | Moiré between the grid and the sensor | D: arises from resampling; not modelled explicitly | — |
 | 71 | HDR / multi-frame local tone mapping (flat-looking shadows) | D: partly covered by the shadow strength | 23 |

@@ -44,13 +44,21 @@ are mostly drawings, tables or crossed-out text; those make weaker references.
 ductus write notes.txt -o out/notes --style styles/my-hand --look profile --mode notes
 ```
 
-`--look profile` uses your measured habits and the loose OCR threshold (0.5): ductus only
-regenerates words that came out wrong or missing, and never tidies your writing. Each block of
-about 40 words uses a different reference line, so the page shows the variety of your
-writing rather than one line repeated.
+`--look profile` is the `natural` look with the measurements and habits of your profile on
+top (see [HABITS.md](HABITS.md) for which values are used). Words must still read back:
+`--legibility strict` (the default) uses the OCR threshold 0.15 and keeps your own
+proportions, and messiness stays in spacing, baseline and shape rather than in garbled
+letters. Add `--legibility loose` to only regenerate words that came out wrong or missing,
+with the profile's threshold (0.5 unless `profile.json` sets `max_cer`). Each block of about
+40 words uses a different reference line, so the page shows the variety of your writing
+rather than one line repeated.
+
+The letter shapes follow the reference lines only with `--engine diffusion` or `--engine
+auto`. With the default engine the letters come from the plain RNN hand, and your profile sets
+the size, spacing, slant, ink colour and habits.
 
 Useful overrides: `--paper grid` to match grid notebooks, `--ink "#1b3fa0"` for a blue
-ballpoint, `--size` to set the x-height, `--corrections 0.02` for occasional crossed-out
+ballpoint (or pick a pen with `--pen`, see [PENS.md](PENS.md)), `--size` to set the x-height, `--corrections 0.02` for occasional crossed-out
 words.
 
 ## Responsible use

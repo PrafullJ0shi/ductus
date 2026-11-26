@@ -49,7 +49,8 @@ Scale (px): 12 / 14 / 16 / 20 / 28 / 40. Line length on the demo page: 68 charac
 
 - Diagrams follow the diagram-design kit: orthogonal connectors only, at most nine nodes,
   no shadows, no gradients, no glows, radius 6 px or less, labels on opaque masks,
-  4 px grid. Each diagram ships as HTML (source of truth) and as light and dark PNGs.
+  4 px grid. Each diagram ships as HTML or SVG built by a script in `docs/diagrams/`, with light and dark
+  variants (PNGs or SVGs).
 - README images use `<picture>` with `prefers-color-scheme` so diagrams read in both
   GitHub themes. Handwriting samples are on white paper and need no dark variant.
 - Comparison figures are grids with a caption row in Plex Mono: system, settings, time.

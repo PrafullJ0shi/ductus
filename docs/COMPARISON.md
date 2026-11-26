@@ -31,6 +31,9 @@ were written by every system: ordinary prose plus names, capitals, digits and sy
 
 ![Same sentences written by each system](assets/side-by-side.png)
 
+This figure was made with the diffusion-only version of ductus, before the plain-letter RNN
+became the default. Current results are in [BENCHMARK.md](BENCHMARK.md).
+
 ## Legibility: OCR character error rate
 
 Judge: `microsoft/trocr-large-handwritten`, a different and larger model than the one ductus

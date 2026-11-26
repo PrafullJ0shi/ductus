@@ -1,5 +1,8 @@
 # Evaluation
 
+> **Status.** These measurements are from the earlier diffusion-only version. Current
+> readability and speed numbers are in [BENCHMARK.md](BENCHMARK.md) (round 2).
+
 Everything here can be re-run with the scripts in [`scripts/`](../scripts). Machine: 8 CPU
 cores, no GPU.
 
@@ -37,7 +40,7 @@ Where each system fails (normalised CER per group of 20 lines, from the same run
 
 | System | Lines with capitals or digits | Plain lowercase lines |
 |---|---|---|
-| 2016 RNN, bias 1.5 | higher: "BTC" read as "BIT", "9:30" as "9 so", "450 rupees" lost | 0 to 2% on most lines |
+| 2016 RNN, bias 1.5 | higher: "BTC" read as "BIT", "9:30" as "9 so", an amount with a currency word lost | 0 to 2% on most lines |
 | ductus neat | "BTC", "9:30", "12.5", "ID" written correctly | slips on some long words ("Wednesday", "library") |
 
 Notes:
@@ -73,7 +76,7 @@ A notes page of 150 to 250 words takes about 2 to 5 minutes on CPU.
 **Question.** Can a classifier or a reviewer tell real handwriting from ductus output when
 both get the same treatment?
 
-**Real data.** The user's own pages are private and are not used on the development machine.
+**Real data.** The writer's own pages are private and are not used on the development machine.
 As a stand-in, IAM test-set writers that ship with the DiffBrush repository (writers the
 model was not trained on) were used: for each writer one line is the style reference, 20
 other lines are "real", and ductus writes 20 new lines (WikiText sentences) in that style
@@ -95,7 +98,7 @@ This is far from chance. **ductus output is not yet indistinguishable from real 
 this test.** Looking at the windows, the main cues are (1) stroke weight and ink texture
 (the flat renderer's even strokes; the new ink model and re-inked line width target this),
 (2) style mismatch: one reference line does not carry every habit of a writer, and (3) word
-spacing. The test will be re-run with the new ink model and with the user's pages once his
+spacing. The test will be re-run with the new ink model and with the writer's own pages once a
 profile is built.
 
 **(b) Reviewers.** `blind_test.py` writes a shuffled 24-tile sheet and a separate answer key.
@@ -108,14 +111,14 @@ python scripts/blind_test.py --binarize --real real_lines/ --fake fake_lines/ --
 python scripts/blind_test.py --out blind/ --score answers.json
 ```
 
-## 5. With the user's pages
+## 5. With the writer's own pages
 
-Once `ductus style` has been run on the 8 photos (on the user's machine):
+Once `ductus style` has been run on photos of the writer's pages (on the writer's own machine):
 
 1. Real line crops: `styles/<name>/refs/` and the line crops in `debug/`.
 2. Generated: `python scripts/proxy_blind_iam.py` adapted to the profile, or
    `ductus write ... --style styles/<name> --look profile` and crop lines.
-3. Realism metric: OCR CER of his real lines (needs a transcript) against OCR CER of
-   generated lines in his style. In his style the check is loose (threshold 0.5) and only
-   catches wrong or missing words, so the generated CER should sit close to his real CER,
+3. Realism metric: OCR CER of the writer's real lines (needs a transcript) against OCR CER of
+   generated lines in the writer's style. With `--legibility loose` the check uses a threshold of 0.5 and only
+   catches wrong or missing words, so the generated CER should sit close to the real CER,
    not below it.

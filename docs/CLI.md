@@ -10,41 +10,80 @@ First use downloads the DiffBrush checkpoint (1.2 GB, Google Drive via gdown), t
 Diffusion 1.5 VAE (335 MB, Hugging Face) and TrOCR base (1.3 GB, Hugging Face) into
 `~/.cache/ductus` and the Hugging Face cache. No login is needed.
 
+The RNN writer, which is the default, needs more: a checkout of
+[Grzego/handwriting-generation](https://github.com/Grzego/handwriting-generation) and a Python
+with TensorFlow 2. See the environment variables below and the README.
+
 ## `ductus write`
 
 ```
 ductus write INPUT -o OUT [options]
 ```
 
+The table follows `src/ductus/cli.py`. If you change one, change the other.
+
+**Input and output**
+
 | Option | Default | Meaning |
 |---|---|---|
 | `INPUT` | `-` | text file with optional markup, or `-` for stdin |
-| `--text` | | inline text instead of a file |
-| `-o, --out` | `page` | output path without extension; writes `OUT.png` (or `OUT-1.png`, ...) and `OUT.pdf` |
-| `--style` | `upright` | a preset (`upright`, `slant`, `quick`, `round`, `loose`), a line image, or a profile folder from `ductus style` |
-| `--look` | `natural` | `neat`, `natural`, `messy`, or `profile` (use the measured habits of a profile) |
-| `--mode` | `plain` | `plain`, `notes` (auto-detects `Term: meaning`), `maths` (`= ...` lines align) |
-| `--paper` | `white` | `white` A4, `ruled`, or `grid` (5 mm) |
-| `--photo [a4\|notebook]` | off | phone photo of the page. `a4` (default when the flag is given alone): one loose white sheet on a desk, slight corner/edge lift, contact shadow. `notebook`: spiral-bound grid pad, pages below, curl at the binding. Both use the same calibrated camera pipeline |
-| `--ink-model` | `realism` | `realism` (calibrated striations, skips, blobs, overlap darkening), `pens` (simpler model), `flat` |
-| `--humanize` | `0.5` | rate of the human-error pass on the laid-out page (size and baseline drift, retouched letters); ignored for `--look neat` |
-| `--legibility` | `strict` | `strict`: every word must pass both the line and the word OCR read-back, or it is written again (messiness goes into spacing, baseline and shape, never garbled letters). `loose`: only catch wrong or missing words |
-| `--allow-loops` | off | keep looped f, stylish r and looped ascenders; by default such words are written again until the plain form appears (`letterforms.py`) |
-| `--no-cache` | off | generate words afresh instead of reusing `~/.cache/ductus/words` |
-| `--ink` | `#1c2a6e` | ink colour |
-| `--pen` | `1.0` | stroke weight multiplier |
-| `--size` | `2.8` | x-height in mm |
-| `--seed` | `0` | random seed (same seed, same page) |
-| `--steps` | `25` | diffusion steps; 50 is slightly cleaner and twice as slow |
-| `--max-cer` | by look | OCR acceptance threshold (neat 0.15, natural 0.25, profile 0.5) |
-| `--corrections` | by look | share of words written wrong, struck out and rewritten |
-| `--no-verify` | off | skip OCR read-back (faster, more spelling slips) |
-| `--svg` | off | also write a vector SVG |
-| `--animate` | off | also write an SVG that draws itself |
+| `--text TEXT` | | inline text instead of a file (wins over `INPUT`) |
+| `-o`, `--out PATH` | `page` | output path without extension; writes `PATH.png` (or `PATH-1.png`, ... for several pages) and `PATH.pdf` |
 | `--no-pdf` | off | skip the PDF |
+| `--svg` | off | also write a vector SVG |
+| `--animate` | off | also write an SVG that draws itself (`PATH.anim.svg`) |
+| `-q`, `--quiet` | off | no progress messages on stderr |
 
-The command prints a JSON line with the files and statistics (words, carrier lines generated,
-words still failing after the retries, seconds).
+**Content and look**
+
+| Option | Default | Meaning |
+|---|---|---|
+| `--mode` | `plain` | `plain`, `notes` (also reads `Term: meaning`), or `maths` (`= ...` lines align) |
+| `--look` | `natural` | `neat`, `natural`, `messy`, or `profile` (the natural look plus the measurements and habits of the `--style` profile) |
+| `--style` | `upright` | a preset (`upright`, `slant`, `quick`, `round`, `loose`; list them with `ductus presets`), a line image, or a profile folder from `ductus style` |
+| `--size MM` | `2.8` | x-height of the writing in mm |
+| `--paper` | `white` | `white`, `ruled`, or `grid` (5 mm). With `--photo notebook` the default is `grid` |
+| `--photo [a4\|notebook]` | off | phone photo of the page. `a4` (used when the flag has no value): one loose white sheet on a desk, slight corner lift, contact shadow. `notebook`: spiral-bound grid pad, pages below, curl at the binding. Both use the same calibrated camera model |
+| `--corrections RATE` | by look | share of words written wrong, struck out and rewritten (`messy` 0.03, others 0) |
+| `--humanize RATE` | `0.5` | rate of the human-error pass on the laid-out page (drift of size, baseline and slant, retouched letters); `0` turns it off; ignored for `--look neat` |
+| `--seed N` | `0` | random seed; same input, options and seed give the same page |
+
+**Pen and ink** (details in [PENS.md](PENS.md) and [INK.md](INK.md))
+
+| Option | Default | Meaning |
+|---|---|---|
+| `--pen` | `blue-ballpoint` | `blue-ballpoint`, `black-ballpoint`, `blue-gel`, `black-gel`, `fountain`, `pencil`. With a profile and no `--pen`, the measured ink colour and width are used |
+| `--tip MM` | pen's own | nominal tip size: `0.5`, `0.7` or `1.0` (other numbers are accepted) |
+| `--weight W` | `1.0` | stroke weight multiplier on top of the pen |
+| `--ink '#rrggbb'` | pen's colour | override the ink colour |
+| `--ink-model` | `realism` | `realism` (striations, skips, blobs, overlap darkening), `pens` (simpler model), or `flat` |
+| `--flat-ink` | off | same as `--ink-model flat` |
+
+**Writer and read-back** (details in [ARCHITECTURE.md](ARCHITECTURE.md))
+
+| Option | Default | Meaning |
+|---|---|---|
+| `--engine` | `default` | `default`: RNN letters when installed, else diffusion, with diffusion as fallback; `rnn`: same, but stops if the RNN is missing; `diffusion`: letter shapes copied from `--style`; `auto`: diffusion first, RNN for words that do not read |
+| `--rnn-style N` | `1` | built-in RNN writer style 0 to 7 (style 1 writes plain print letters) |
+| `--rnn-bias B` | `1.5` | RNN neatness; higher is neater |
+| `--legibility` | `strict` | `strict`: every word must pass both the line and the word OCR read-back, or it is written again; `loose`: only catch wrong or missing words |
+| `--allow-loops` | off | keep looped `f`, stylish `r` and looped ascenders; by default such words are written again until the plain form appears (`letterforms.py`) |
+| `--max-cer X` | `0.15` | OCR acceptance threshold (character error rate); with `--legibility loose` and a profile, the profile's value (0.5 by default) |
+| `--no-verify` | off | skip the OCR read-back (faster, more mistakes) |
+| `--steps N` | `25` | diffusion steps; more is slower |
+| `--no-cache` | off | generate words afresh instead of reusing earlier ones |
+
+The command prints a JSON line with the files and statistics: words, carrier lines generated,
+words still failing after the last round, seconds, the pen and the OCR mean score.
+
+## Environment variables
+
+| Variable | Meaning |
+|---|---|
+| `DUCTUS_RNN_DIR` | folder of the Grzego/handwriting-generation checkout (default `~/.cache/ductus/handwriting-generation`) |
+| `DUCTUS_RNN_PYTHON` | Python with TensorFlow 2 that runs the RNN worker |
+| `DUCTUS_RNN_THREADS` | CPU threads for the RNN worker (default 2) |
+| `DUCTUS_CACHE` | folder for downloaded weights (default `~/.cache/ductus`). The word cache uses the same variable as its own folder (default `~/.cache/ductus/words`) |
 
 ## Markup
 
@@ -85,13 +124,20 @@ Characters the model cannot write and that have no mark fall back to a close ASC
 ductus style photo1.jpg photo2.jpg ... -o styles/my-hand [--name my-hand]
 ```
 
+| Option | Default | Meaning |
+|---|---|---|
+| `photos` | required | one or more page photos |
+| `-o`, `--out` | required | profile folder |
+| `--name` | `my-hand` | name stored in `profile.json` |
+| `--no-ocr` | off | skip the OCR check that finds upside-down pages |
+
 Writes `styles/my-hand/profile.json`, reference line crops in `refs/` and cleaned page ink maps
 in `debug/`. Use the folder as `--style styles/my-hand --look profile`. See
-[STYLE_GUIDE.md](STYLE_GUIDE.md).
+[STYLE_GUIDE.md](STYLE_GUIDE.md) and [HABITS.md](HABITS.md).
 
 ## `ductus presets`
 
-Lists the built-in styles.
+Lists the built-in styles and a note on each.
 
 ## Python
 
@@ -107,5 +153,5 @@ save_svg(r.layouts[0], r.words, "page.svg", r.look.ink, r.stats["pen_px"], anima
 print(r.stats)
 ```
 
-`write_lines(writer, lines, options)` returns one tight grayscale crop per input line; the
-evaluation scripts use it.
+`write_lines(writer, lines, options)` returns a list with one tight grayscale crop per input
+line, and a dict of statistics; the evaluation scripts use it.

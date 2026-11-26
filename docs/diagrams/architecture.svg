@@ -1,0 +1,96 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg viewBox="0 0 960 624" xmlns="http://www.w3.org/2000/svg" role="img" aria-labelledby="architecture-title architecture-desc">
+<title id="architecture-title">ductus architecture</title>
+<desc id="architecture-desc">Text is written word by word by a plain-letter RNN, every word is read back by OCR and rewritten if it fails, words that still fail go to a diffusion writer, and the words are then laid out, inked, optionally photographed and saved.</desc>
+<defs>
+<marker id="a" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto"><polygon points="0 0, 8 3, 0 6" fill="#5C6170"/></marker>
+<marker id="aa" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto"><polygon points="0 0, 8 3, 0 6" fill="#1C2A6E"/></marker>
+</defs>
+<rect width="960" height="624" fill="#FBFAF7"/>
+<path d="M216 144 H266" fill="none" stroke="#5C6170" stroke-width="1.2" marker-end="url(#a)"/>
+<path d="M444 144 H494" fill="none" stroke="#5C6170" stroke-width="1.2" marker-end="url(#a)"/>
+<path d="M584 110 V88 Q584 80 576 80 H364 Q356 80 356 88 V110" fill="none" stroke="#1C2A6E" stroke-width="1.2" stroke-dasharray="5,4" marker-end="url(#aa)"/>
+<path d="M672 144 H722" fill="none" stroke="#1C2A6E" stroke-width="1.4" marker-end="url(#aa)"/>
+<path d="M556 176 V286" fill="none" stroke="#5C6170" stroke-width="1.2" marker-end="url(#a)"/>
+<path d="M612 286 V178" fill="none" stroke="#5C6170" stroke-width="1.2" stroke-dasharray="5,4" marker-end="url(#a)"/>
+<path d="M444 320 H494" fill="none" stroke="#5C6170" stroke-width="1.2" stroke-dasharray="5,4" marker-end="url(#a)"/>
+<path d="M812 176 V286" fill="none" stroke="#5C6170" stroke-width="1.2" marker-end="url(#a)"/>
+<path d="M812 352 V462" fill="none" stroke="#5C6170" stroke-width="1.2" marker-end="url(#a)"/>
+<path d="M722 496 H674" fill="none" stroke="#5C6170" stroke-width="1.2" marker-end="url(#a)"/>
+<rect x="440.5" y="58" width="59" height="12" rx="2" fill="#FBFAF7"/><text x="470.0" y="67" fill="#6F7482" font-size="8" font-family="'IBM Plex Mono', monospace" text-anchor="middle" letter-spacing="0.06em">REWRITE</text>
+<rect x="447" y="224" width="101" height="12" rx="2" fill="#FBFAF7"/><text x="497.5" y="233" fill="#6F7482" font-size="8" font-family="'IBM Plex Mono', monospace" text-anchor="middle" letter-spacing="0.06em">STILL FAILING</text>
+<rect x="620" y="224" width="73" height="12" rx="2" fill="#FBFAF7"/><text x="656.5" y="233" fill="#6F7482" font-size="8" font-family="'IBM Plex Mono', monospace" text-anchor="middle" letter-spacing="0.06em">REWRITTEN</text>
+<g id="n-text">
+<rect x="40" y="112" width="176" height="64" rx="6" fill="#FBFAF7"/>
+<rect x="40" y="112" width="176" height="64" rx="6" fill="#FFFFFF" stroke="#5C6170" stroke-width="1"/>
+<rect x="48" y="120" width="20" height="12" rx="2" fill="none" stroke="#5C6170" stroke-opacity="0.45" stroke-width="0.8"/>
+<text x="58.0" y="129" fill="#5C6170" font-size="7" font-family="'IBM Plex Mono', monospace" text-anchor="middle" letter-spacing="0.08em">IN</text>
+<text x="128.0" y="150" fill="#1D1F24" font-size="15" font-weight="600" font-family="Newsreader, Georgia, serif" text-anchor="middle" style="font-variant-ligatures:none">Text and markup</text>
+<text x="128.0" y="166" fill="#5C6170" font-size="9.5" font-family="'IBM Plex Mono', monospace" text-anchor="middle">plain, notes, maths</text>
+</g>
+<g id="n-rnn">
+<rect x="268" y="112" width="176" height="64" rx="6" fill="#FBFAF7"/>
+<rect x="268" y="112" width="176" height="64" rx="6" fill="#FFFFFF" stroke="#5C6170" stroke-width="1"/>
+<rect x="276" y="120" width="38" height="12" rx="2" fill="none" stroke="#5C6170" stroke-opacity="0.45" stroke-width="0.8"/>
+<text x="295.0" y="129" fill="#5C6170" font-size="7" font-family="'IBM Plex Mono', monospace" text-anchor="middle" letter-spacing="0.08em">MODEL</text>
+<text x="356.0" y="150" fill="#1D1F24" font-size="15" font-weight="600" font-family="Newsreader, Georgia, serif" text-anchor="middle" style="font-variant-ligatures:none">RNN writer</text>
+<text x="356.0" y="166" fill="#5C6170" font-size="9.5" font-family="'IBM Plex Mono', monospace" text-anchor="middle">plain print letters</text>
+</g>
+<g id="n-read">
+<rect x="496" y="112" width="176" height="64" rx="6" fill="#FBFAF7"/>
+<rect x="496" y="112" width="176" height="64" rx="6" fill="rgba(28,42,110,0.06)" stroke="#1C2A6E" stroke-width="1.4"/>
+<rect x="504" y="120" width="38" height="12" rx="2" fill="none" stroke="#1C2A6E" stroke-opacity="0.45" stroke-width="0.8"/>
+<text x="523.0" y="129" fill="#1C2A6E" font-size="7" font-family="'IBM Plex Mono', monospace" text-anchor="middle" letter-spacing="0.08em">CHECK</text>
+<text x="584.0" y="150" fill="#1D1F24" font-size="15" font-weight="600" font-family="Newsreader, Georgia, serif" text-anchor="middle" style="font-variant-ligatures:none">Read-back check</text>
+<text x="584.0" y="166" fill="#5C6170" font-size="9.5" font-family="'IBM Plex Mono', monospace" text-anchor="middle">OCR and letter shapes</text>
+</g>
+<g id="n-lay">
+<rect x="724" y="112" width="176" height="64" rx="6" fill="#FBFAF7"/>
+<rect x="724" y="112" width="176" height="64" rx="6" fill="#FFFFFF" stroke="#5C6170" stroke-width="1"/>
+<rect x="732" y="120" width="32" height="12" rx="2" fill="none" stroke="#5C6170" stroke-opacity="0.45" stroke-width="0.8"/>
+<text x="748.0" y="129" fill="#5C6170" font-size="7" font-family="'IBM Plex Mono', monospace" text-anchor="middle" letter-spacing="0.08em">STEP</text>
+<text x="812.0" y="150" fill="#1D1F24" font-size="15" font-weight="600" font-family="Newsreader, Georgia, serif" text-anchor="middle" style="font-variant-ligatures:none">Layout and marks</text>
+<text x="812.0" y="166" fill="#5C6170" font-size="9.5" font-family="'IBM Plex Mono', monospace" text-anchor="middle">drift, margins, pen marks</text>
+</g>
+<g id="n-prof">
+<rect x="268" y="288" width="176" height="64" rx="6" fill="#FBFAF7"/>
+<rect x="268" y="288" width="176" height="64" rx="6" fill="#FFFFFF" stroke="#5C6170" stroke-width="1" stroke-dasharray="4,3"/>
+<rect x="276" y="296" width="20" height="12" rx="2" fill="none" stroke="#5C6170" stroke-opacity="0.45" stroke-width="0.8"/>
+<text x="286.0" y="305" fill="#5C6170" font-size="7" font-family="'IBM Plex Mono', monospace" text-anchor="middle" letter-spacing="0.08em">IN</text>
+<text x="356.0" y="326" fill="#1D1F24" font-size="15" font-weight="600" font-family="Newsreader, Georgia, serif" text-anchor="middle" style="font-variant-ligatures:none">Style profile</text>
+<text x="356.0" y="342" fill="#5C6170" font-size="9.5" font-family="'IBM Plex Mono', monospace" text-anchor="middle">optional, from photos</text>
+</g>
+<g id="n-diff">
+<rect x="496" y="288" width="176" height="64" rx="6" fill="#FBFAF7"/>
+<rect x="496" y="288" width="176" height="64" rx="6" fill="#FFFFFF" stroke="#5C6170" stroke-width="1"/>
+<rect x="504" y="296" width="38" height="12" rx="2" fill="none" stroke="#5C6170" stroke-opacity="0.45" stroke-width="0.8"/>
+<text x="523.0" y="305" fill="#5C6170" font-size="7" font-family="'IBM Plex Mono', monospace" text-anchor="middle" letter-spacing="0.08em">MODEL</text>
+<text x="584.0" y="326" fill="#1D1F24" font-size="15" font-weight="600" font-family="Newsreader, Georgia, serif" text-anchor="middle" style="font-variant-ligatures:none">Diffusion writer</text>
+<text x="584.0" y="342" fill="#5C6170" font-size="9.5" font-family="'IBM Plex Mono', monospace" text-anchor="middle">fallback, copies a style</text>
+</g>
+<g id="n-ink">
+<rect x="724" y="288" width="176" height="64" rx="6" fill="#FBFAF7"/>
+<rect x="724" y="288" width="176" height="64" rx="6" fill="#FFFFFF" stroke="#5C6170" stroke-width="1"/>
+<rect x="732" y="296" width="32" height="12" rx="2" fill="none" stroke="#5C6170" stroke-opacity="0.45" stroke-width="0.8"/>
+<text x="748.0" y="305" fill="#5C6170" font-size="7" font-family="'IBM Plex Mono', monospace" text-anchor="middle" letter-spacing="0.08em">STEP</text>
+<text x="812.0" y="326" fill="#1D1F24" font-size="15" font-weight="600" font-family="Newsreader, Georgia, serif" text-anchor="middle" style="font-variant-ligatures:none">Ink on paper</text>
+<text x="812.0" y="342" fill="#5C6170" font-size="9.5" font-family="'IBM Plex Mono', monospace" text-anchor="middle">pen model at 600 dpi</text>
+</g>
+<g id="n-out">
+<rect x="496" y="464" width="176" height="64" rx="6" fill="#FBFAF7"/>
+<rect x="496" y="464" width="176" height="64" rx="6" fill="#FFFFFF" stroke="#5C6170" stroke-width="1"/>
+<rect x="504" y="472" width="26" height="12" rx="2" fill="none" stroke="#5C6170" stroke-opacity="0.45" stroke-width="0.8"/>
+<text x="517.0" y="481" fill="#5C6170" font-size="7" font-family="'IBM Plex Mono', monospace" text-anchor="middle" letter-spacing="0.08em">OUT</text>
+<text x="584.0" y="502" fill="#1D1F24" font-size="15" font-weight="600" font-family="Newsreader, Georgia, serif" text-anchor="middle" style="font-variant-ligatures:none">Outputs</text>
+<text x="584.0" y="518" fill="#5C6170" font-size="9.5" font-family="'IBM Plex Mono', monospace" text-anchor="middle">PNG, PDF, SVG</text>
+</g>
+<g id="n-photo">
+<rect x="724" y="464" width="176" height="64" rx="6" fill="#FBFAF7"/>
+<rect x="724" y="464" width="176" height="64" rx="6" fill="#FFFFFF" stroke="#5C6170" stroke-width="1" stroke-dasharray="4,3"/>
+<rect x="732" y="472" width="32" height="12" rx="2" fill="none" stroke="#5C6170" stroke-opacity="0.45" stroke-width="0.8"/>
+<text x="748.0" y="481" fill="#5C6170" font-size="7" font-family="'IBM Plex Mono', monospace" text-anchor="middle" letter-spacing="0.08em">STEP</text>
+<text x="812.0" y="502" fill="#1D1F24" font-size="15" font-weight="600" font-family="Newsreader, Georgia, serif" text-anchor="middle" style="font-variant-ligatures:none">Phone photo</text>
+<text x="812.0" y="518" fill="#5C6170" font-size="9.5" font-family="'IBM Plex Mono', monospace" text-anchor="middle">skipped without --photo</text>
+</g>
+<line x1="40" y1="584" x2="72" y2="584" stroke="#1C2A6E" stroke-width="1.4"/><text x="80" y="587" fill="#5C6170" font-size="10" font-family="'IBM Plex Mono', monospace">accent: the check every word must pass</text><line x1="400" y1="584" x2="432" y2="584" stroke="#5C6170" stroke-width="1.2" stroke-dasharray="5,4"/><text x="440" y="587" fill="#5C6170" font-size="10" font-family="'IBM Plex Mono', monospace">dashed: optional or returning</text>
+</svg>

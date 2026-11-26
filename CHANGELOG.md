@@ -4,6 +4,14 @@ All notable changes are listed here. Versions follow semantic versioning.
 
 ## Unreleased
 
+- Default writer is the Graves RNN (plain, print-like letters), with diffusion as the fallback
+  for words it cannot write or that still fail the read-back (`--engine`).
+- Strict read-back by default (`--legibility strict`): every word must pass the line and the
+  word check; a letter-shape check rewrites looped `f`, `r` and ascenders (`--allow-loops` to
+  keep them).
+- Docs: new [PENS.md](docs/PENS.md), rewritten [INK.md](docs/INK.md), [HABITS.md](docs/HABITS.md),
+  [FAQ.md](docs/FAQ.md), [ARCHITECTURE.md](docs/ARCHITECTURE.md) with a new diagram, an option
+  table in the README and CLI reference that matches `cli.py`, and `scripts/check_links.py`.
 - Calibrated ink model (`--ink-model realism`, default): striations, skips, flow variation,
   blobs and overlap darkening, composited in linear light at 600 dpi.
 - Phone photo surfaces: `--photo a4` (loose white sheet on a desk, default) and

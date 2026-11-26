@@ -14,67 +14,53 @@
 </p>
 
 **ductus** turns text into handwritten A4 pages: notes with arrows and ticks, worked maths
-with fractions and roots, lists, tables and plain prose. It is a 2026 successor to the 2016
-RNN demos such as [greydanus/scribe](https://github.com/greydanus/scribe). Plain, readable
-letters come from the Graves handwriting RNN; a one-shot diffusion model (DiffBrush, ICCV 2025)
-writes what the RNN cannot and can copy a style from a photo. Every word is read back by OCR
-and rewritten until it reads, and a layout, ink and camera model add the habits of a person
-writing on paper.
+with fractions and roots, lists, tables and plain prose. It is a 2026 successor to 2016 RNN
+demos such as [greydanus/scribe](https://github.com/greydanus/scribe).
+
+- **Letters** come from the Graves handwriting RNN, which writes plain, print-like letters.
+  A one-shot diffusion model, DiffBrush (ICCV 2025), writes what the RNN cannot and can copy a
+  style from a photo.
+- **Every word** is read back by OCR and written again if it does not read.
+- **The page** gets a layout, pen and ink model, and optionally a phone-photo look, so it looks
+  like a person wrote it on paper.
 
 *Ductus* is the palaeographers' word for the way a hand moves to form letters.
+
+## Status
+
+Early, and small. What is true today:
+
+- It reads well on plain prose. On the 7-line test in [docs/BENCHMARK.md](docs/BENCHMARK.md) it
+  is level with fonts on the prose lines but behind a handwriting font and the 2018 RNNs on
+  average, mostly because of the maths line.
+- It is slow on a CPU compared with fonts and RNNs, because of the OCR read-back.
+- It never repeats an identical letter shape (glyph twin rate 0.000 in the benchmark); fonts
+  do.
+- Maths and notes layouts, a personal style profile and a phone-photo look are things the
+  tools in that benchmark do not have.
+- The tests are small: 7 lines, one sample each. Treat the numbers as indications.
 
 ## Quick start
 
 ```bash
 git clone https://github.com/PrafullJ0shi/ductus && cd ductus
 pip install -e ".[model,pdf]"
-# plain RNN letters (recommended): the pretrained model and a Python with TensorFlow 2
+# plain RNN letters (the default writer): the pretrained model and a Python with TensorFlow 2
 git clone https://github.com/Grzego/handwriting-generation ~/.cache/ductus/handwriting-generation
 export DUCTUS_RNN_PYTHON=/path/to/python-with-tensorflow
 ductus write examples/definitions.txt -o out/defs --mode notes
 ```
 
-Writes `out/defs.png` and `out/defs.pdf` (A4, 300 dpi). Without the RNN, ductus falls back to the
-diffusion engine for every word: slower, and less readable (see the benchmark below).
+This writes `out/defs.png` and `out/defs.pdf` (A4, 300 dpi) and prints a JSON line with
+statistics. Requires Python 3.10 or newer; no GPU is needed.
 
-## What it does
+The first run downloads the DiffBrush checkpoint (1.2 GB), the Stable Diffusion 1.5 VAE and
+TrOCR from public links; no account is needed. The RNN runs as a separate process with the
+Python in `DUCTUS_RNN_PYTHON`, from the checkout in `~/.cache/ductus/handwriting-generation`
+or `$DUCTUS_RNN_DIR`. Without the RNN, ductus uses the diffusion writer for every word: slower
+and less readable (round 1 in the benchmark).
 
-- **Readable first.** Letters come from the Graves RNN by default (plain print-like forms);
-  every word is read back by OCR and rewritten until it reads.
-- **Your own hand.** `ductus style` builds a profile from photos of your pages: size, spacing,
-  slant, margins, ink colour and habits. With `--engine diffusion` or `auto` the letter
-  shapes are also copied from the photos, at a cost in speed and legibility.
-- **Notes and maths layouts.** `Term :: meaning` definitions with arrows, `Note:` lines,
-  numbered lists with ticks and crosses, headings with drawn rules, `{a/b}` fractions,
-  `sqrt()`, sigma, superscripts, tables with ruled columns, circled answers, `=` lines aligned
-  under each other.
-- **Human habits.** Baseline drift, wandering margins, uneven spacing, size growth toward the
-  end of a page, squeezed words at line ends, the odd crossed-out slip, retraced words,
-  smudges. Each detail is listed with its source in [docs/REALISM.md](docs/REALISM.md).
-- **Plain, readable letters.** The default hand is plain print-like writing. A letter-shape
-  check re-writes words whose f, r or ascenders come out looped or calligraphic, and every
-  word must pass an OCR read-back, so messiness stays in spacing, baseline and shape.
-  ![Before and after the plain-letter check](docs/assets/letterforms-before-after.png)
-- **Real ink.** Ballpoint, gel, fountain pen or pencil, with speed-dependent density, blobs,
-  skips, rough edges and darker overlaps ([docs/INK.md](docs/INK.md)).
-- **Paper and camera.** White A4 (default), ruled or 5 mm grid. `--photo a4` (a loose sheet
-  on a desk, the default photo) or `--photo notebook` (a spiral grid pad) simulates a phone
-  picture with keystone, curl, shadow, white balance, noise and JPEG, calibrated on a real one.
-- **Outputs.** 300 dpi PNG, PDF, SVG and an SVG that writes itself.
-
-## Before and after
-
-The same text written by the 2016-era Graves RNN (left, pretrained
-[Grzego/handwriting-generation](https://github.com/Grzego/handwriting-generation), one
-sample per line) and by ductus (right).
-
-![The intro written by the 2016 RNN and by ductus](docs/assets/before-after.jpg)
-
-The RNN writes clean lowercase prose but breaks on capitals and digits ("BTC" became "Baer",
-"RupeeClarity" became "Rupeellarity"). ductus writes them, lays out the page and copies a
-style from an image. Measured differences are below.
-
-## Gallery
+## Examples
 
 | Definitions (notes mode) | Worked example (maths mode) |
 |---|---|
@@ -82,50 +68,16 @@ style from an image. Measured differences are below.
 | **Checklist** | **Intro** |
 | ![Checklist page](samples/checklist.jpg) | ![Intro page](samples/intro.jpg) |
 
-More in [`samples/`](samples): neat and messy looks, grid and ruled paper, each pen, and a
-phone photo. Every sample is generated by `scripts/make_samples.py` from the files in
-[`examples/`](examples).
+More in [`samples/`](samples): neat and messy looks, grid and ruled paper, and a phone photo.
+`scripts/make_samples.py` makes them from the files in [`examples/`](examples).
 
-## Benchmark summary
+Clean page and phone photo, with `--photo a4` and `--photo notebook`:
 
-From [docs/BENCHMARK.md](docs/BENCHMARK.md): 7 test lines, one sample each, judged by
-`trocr-large-handwritten` (a different OCR model from the one ductus uses for its own check).
-Normalised character error rate on the 4 main lines (short sentence, definition, maths, pangram);
-lower reads better.
+![Clean page and --photo a4](docs/assets/photo_a4_compare.jpg)
 
-| System | norm CER | Capitals | Repeated glyphs | s per line (CPU) |
-|---|---|---|---|---|
-| Handwriting font (Caveat, via text-to-handwriting) | **0.000** | 0.000 | 46% of shapes | 0.7 |
-| sjvasquez RNN (2018) | 0.084 | 1.500 | 0% | 2.7 |
-| **ductus, current (RNN letters + diffusion fallback)** | 0.113 | 0.227 | 0% | 23 |
-| Grzego RNN (2018) | 0.124 | 0.591 | 0% | 5.2 |
-| ductus, round 1 (diffusion letters) | 0.148 | 0.000 | 0% | 390 |
+![Grid page and --photo notebook](docs/assets/photo_notebook_compare.jpg)
 
-Without spin:
-
-- ductus writes the three prose lines perfectly; all of its remaining error is the maths line,
-  where the judge cannot read drawn fractions and `=` marks and `x^2` came out wrong.
-- It is still behind the sjvasquez RNN on average and far behind a font, and much slower than
-  both. A font repeats identical glyphs; ductus never does.
-- n = 7 lines; a single bad word moves a line's CER by 10 to 15 points.
-- An earlier 40-sentence evaluation of the diffusion-only version and a blind
-  real-versus-generated test (not yet at chance) are in [docs/EVALUATION.md](docs/EVALUATION.md)
-  and [docs/COMPARISON.md](docs/COMPARISON.md).
-
-## Install
-
-```bash
-git clone https://github.com/PrafullJ0shi/ductus && cd ductus
-pip install -e ".[model,pdf]"
-```
-
-The first run downloads the DiffBrush checkpoint (1.2 GB), the Stable Diffusion 1.5 VAE and
-TrOCR (no account needed). The RNN engine needs a checkout of
-[Grzego/handwriting-generation](https://github.com/Grzego/handwriting-generation) (MIT, it
-ships the pretrained model) in `~/.cache/ductus/handwriting-generation` or `$DUCTUS_RNN_DIR`,
-and a Python with TensorFlow 2 (`$DUCTUS_RNN_PYTHON`); it runs as a separate process.
-
-## Use
+## Usage
 
 ```bash
 ductus write examples/definitions.txt -o out/defs --mode notes
@@ -139,81 +91,145 @@ ductus style page1.jpg page2.jpg page3.jpg -o styles/my-hand
 ductus write notes.txt -o out/mine --style styles/my-hand --look profile --mode notes
 ```
 
-| Option | Values |
-|---|---|
-| `--look` | `neat`, `natural` (default), `messy`, `profile` |
-| `--engine` | `default` (RNN letters, diffusion fallback), `rnn`, `diffusion`, `auto` |
-| `--mode` | `plain`, `notes`, `maths` |
-| `--pen` | `blue-ballpoint` (default), `black-ballpoint`, `blue-gel`, `black-gel`, `fountain`, `pencil` |
-| `--tip` | `0.5`, `0.7`, `1.0` mm |
-| `--paper` | `white` (default), `ruled`, `grid` (default with `--photo notebook`) |
-| `--photo` | `a4` (default when given alone), `notebook` |
-| `--ink-model` | `realism` (default), `pens`, `flat` |
-| `--legibility` | `strict` (default; every word must read back), `loose` |
-| `--allow-loops` | keep looped f / stylish r (default re-writes them plainly) |
-| `--humanize` | rate of the human-error pass, `0` to `1` (default `0.5`; off for `neat`) |
+Profiles are personal data and are ignored by git (`styles/`). See
+[docs/STYLE_GUIDE.md](docs/STYLE_GUIDE.md).
 
-Full reference: [docs/CLI.md](docs/CLI.md). Markup cheat sheet: [docs/CLI.md#markup](docs/CLI.md#markup).
+### Options for `ductus write`
 
-## Pens
+The main options are below. Every option, with defaults, is in [docs/CLI.md](docs/CLI.md); the
+markup (`Term :: meaning`, `{a/b}`, `[v]` and more) is in [docs/CLI.md#markup](docs/CLI.md#markup).
 
-Each pen has its own colour, line width, pressure response and texture. The ink model
-renders the pen's path at 600 dpi and deposits ink by speed, pauses and overlaps, then
-mixes it with the paper by the Beer-Lambert law. Details in [docs/INK.md](docs/INK.md).
+| Option | Values (default in bold) | Effect |
+|---|---|---|
+| `--mode` | **`plain`**, `notes`, `maths` | what markup is understood and how blocks are laid out |
+| `--look` | `neat`, **`natural`**, `messy`, `profile` | how much human variation is added; `profile` uses the measured habits of `--style` |
+| `--style` | **`upright`**, `slant`, `quick`, `round`, `loose`, a line image, a profile folder | reference for size, spacing and (with the diffusion writer) letter shapes |
+| `--engine` | **`default`**, `rnn`, `diffusion`, `auto` | which writer; `default` is RNN letters with diffusion as fallback |
+| `--legibility` | **`strict`**, `loose` | `strict`: every word must pass the line and the word OCR read-back |
+| `--allow-loops` | off | keep looped `f`, stylish `r` and looped ascenders (otherwise they are rewritten plainly) |
+| `--pen` | **`blue-ballpoint`**, `black-ballpoint`, `blue-gel`, `black-gel`, `fountain`, `pencil` | colour, texture and line width; see [docs/PENS.md](docs/PENS.md) |
+| `--tip` | `0.5`, `0.7`, `1.0` (mm) | nominal tip size, which sets the line width |
+| `--weight` | **`1.0`** | stroke weight multiplier on top of the pen |
+| `--ink` | `#rrggbb` | override the pen's ink colour |
+| `--ink-model` | **`realism`**, `pens`, `flat` | how ink is drawn; see [docs/INK.md](docs/INK.md) |
+| `--paper` | **`white`**, `ruled`, `grid` | grid is the default with `--photo notebook` |
+| `--photo` | `a4`, `notebook` | phone photo of the page; `--photo` alone means `a4` |
+| `--humanize` | `0` to `1`, **`0.5`** | rate of the human-error pass; ignored for `--look neat` |
+| `--corrections` | rate | share of words written wrong, struck out and rewritten |
+| `--size` | mm, **`2.8`** | x-height of the writing |
+| `--seed` | integer, **`0`** | same input, options and seed give the same page |
+| `--no-verify`, `--no-cache` | off | skip the OCR check; do not reuse generated words |
+| `--svg`, `--animate`, `--no-pdf` | off | also write an SVG, an animated SVG, or skip the PDF |
+
+## How it works
+
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/diagrams/architecture-dark.svg">
+  <img alt="Architecture: text and markup go to an RNN writer; every word is read back by OCR and rewritten if it fails; words that still fail go to a diffusion writer; then layout, ink on paper, an optional phone photo and the outputs" src="docs/diagrams/architecture.svg">
+</picture>
+
+1. Markup is parsed into notebook blocks. All words are packed into ordinary 46-character
+   carrier sentences, because line models write full lines best.
+2. The RNN writes the carriers; each line is cut back into words.
+3. Each word is read back by OCR and checked for plain letter shapes. Wrong words are rewritten
+   in new carriers, 4 rounds with the RNN and 2 more with diffusion. A word that still fails is
+   used anyway and counted in `still_failing` in the printed statistics.
+4. The layout places the words and draws marks with human variation; the ink model renders the
+   page; the optional camera model photographs it.
+
+More in [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md), [docs/METHOD.md](docs/METHOD.md) and
+[docs/RESEARCH.md](docs/RESEARCH.md) (a survey of 2013 to 2026 methods and why this one).
+
+## Plain letters
+
+The default hand is plain, print-like writing. A letter-shape check rewrites words whose `f`,
+`r` or ascenders come out looped or calligraphic, and every word must pass the OCR read-back.
+Messiness stays in spacing, baseline, slant and size rather than in the letters.
+
+![Before and after the plain-letter check](docs/assets/letterforms-before-after.png)
+
+## Pens and ink
+
+Six pens (two ballpoints, two gels, a fountain pen and a pencil) with three tip sizes. Each pen
+has its own colour, line width and texture. The page is inked at 600 dpi: speed-dependent
+density, blobs, skips, rough edges and darker overlaps, mixed with the paper by the
+Beer-Lambert law. See [docs/PENS.md](docs/PENS.md) for the numbers and
+[docs/INK.md](docs/INK.md) for the method.
+
+![Old flat ink and new ballpoint ink, 100% crop](docs/assets/ink-before-after.png)
 
 ## Phone photo
 
 Without `--photo` the output is a clean white A4 page. With it, the page is photographed by a
 simulated phone camera: sheet on a desk, perspective, light falloff and shadow, white balance,
-defocus, sensor noise, sharpening and JPEG, in that order, with parameters measured from a real
-phone photo of handwritten notes (`src/ductus/realism/calibration.json`).
+defocus, sensor noise, sharpening and JPEG. The parameters are measured from a real phone photo
+of handwritten notes (`src/ductus/realism/calibration.json`).
 
-**`--photo a4`** (default): one loose white A4 sheet on a desk. No spiral or grid; a corner or
-edge lifts slightly off the desk and casts a soft shadow.
-
-![Clean page and --photo a4](docs/assets/photo_a4_compare.jpg)
-
-**`--photo notebook`**: a spiral-bound grid pad with pages below and curl at the binding. Grid
-paper is the default here; `--paper` overrides it.
-
-![Grid page and --photo notebook](docs/assets/photo_notebook_compare.jpg)
+- `--photo a4` (the default photo): one loose white A4 sheet on a desk. No spiral or grid; a
+  corner or edge lifts slightly and casts a soft shadow.
+- `--photo notebook`: a spiral-bound grid pad with pages below and curl at the binding. Grid
+  paper is the default here; `--paper` overrides it.
 
 Details and sources: [docs/REALISM.md](docs/REALISM.md#g-the-realism-package-srcductusrealism).
 
-## How it works
+## Results
 
-<picture>
-  <source media="(prefers-color-scheme: dark)" srcset="docs/diagrams/pipeline-dark.png">
-  <img alt="Pipeline: text and markup to carrier lines, DiffBrush generation, word split and OCR check with rewrites, notebook layout with pen marks, ink and paper rendering" src="docs/diagrams/pipeline.png">
-</picture>
+From [docs/BENCHMARK.md](docs/BENCHMARK.md): 7 test lines, one sample each, judged by
+`trocr-large-handwritten` (a different OCR model from the one ductus uses for its own check).
+Normalised character error rate on the 4 main lines (short sentence, definition, maths,
+pangram); lower reads better. The ductus rows are rounds 1 and 2 of the same benchmark; the
+machine was less loaded in round 2, so part of the speed gain is not from the code.
 
-1. Markup is parsed into notebook blocks; all words are packed into ordinary 46-character
-   carrier sentences, because the model writes full lines best.
-2. DiffBrush writes the carriers in the reference style; each line is cut back into words.
-3. Each word is read back by TrOCR; wrong words are rewritten in new carriers (up to 5
-   rounds).
-4. The layout places words and draws marks with human variation; the ink model renders the
-   page.
+| System | norm CER | Capitals | Repeated glyphs | s per line (CPU) |
+|---|---|---|---|---|
+| Handwriting font (Caveat, via text-to-handwriting) | **0.000** | 0.000 | 46% of shapes | 0.7 |
+| sjvasquez RNN (2018) | 0.084 | 1.500 | 0% | 2.7 |
+| **ductus, current (RNN letters + diffusion fallback)** | 0.113 | 0.227 | 0% | 23 |
+| Grzego RNN (2018) | 0.124 | 0.591 | 0% | 5.2 |
+| ductus, round 1 (diffusion letters) | 0.148 | 0.000 | 0% | 390 |
 
-More: [ARCHITECTURE](docs/ARCHITECTURE.md), [METHOD](docs/METHOD.md),
-[RESEARCH](docs/RESEARCH.md) (survey of 2013 to 2026 methods and why this one).
+What this says, without spin:
+
+- ductus reads perfectly on three of the four main lines. All of its remaining error is the
+  maths line, where the judge cannot read drawn fractions and `=` marks, and `x^2` came out
+  wrong.
+- It is still behind the sjvasquez RNN on average and far behind a font, and much slower than
+  both.
+- n = 7 lines; a single bad word moves a line's CER by 10 to 15 points.
+- An earlier 40-sentence evaluation of the diffusion-only version, and a blind real-versus-
+  generated test that is not yet at chance, are in [docs/EVALUATION.md](docs/EVALUATION.md)
+  and [docs/COMPARISON.md](docs/COMPARISON.md).
+
+## Limits
+
+- Characters outside the writers' alphabet are drawn as marks or replaced by close ASCII forms.
+  Accented letters and currency signs are not written.
+- Maths is limited to the markup in [docs/CLI.md](docs/CLI.md#markup); it is not a LaTeX
+  renderer.
+- A personal profile copies size, spacing, slant, ink and habits. Letter shapes are copied only
+  with `--engine diffusion` or `auto`, at a cost in speed and readability.
+- The output is not guaranteed to fool a person or a detector. See
+  [docs/EVALUATION.md](docs/EVALUATION.md).
 
 ## Documentation
 
 | Page | Content |
 |---|---|
-| [docs/RESEARCH.md](docs/RESEARCH.md) | survey of handwriting generation, licences, choice of engine |
+| [docs/CLI.md](docs/CLI.md) | every option, markup and the Python API |
+| [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) | modules, writers and data flow |
 | [docs/METHOD.md](docs/METHOD.md) | carriers, read-back, layout, rendering |
-| [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) | modules and data flow |
+| [docs/PENS.md](docs/PENS.md) | pen presets and tip sizes |
+| [docs/INK.md](docs/INK.md) | the ink model |
+| [docs/HABITS.md](docs/HABITS.md) | the writer profile and habits |
 | [docs/STYLE_GUIDE.md](docs/STYLE_GUIDE.md) | writing in your own hand |
-| [docs/HABITS.md](docs/HABITS.md) | the writer habit profile |
 | [docs/REALISM.md](docs/REALISM.md) | 72 realism details with sources and status |
-| [docs/INK.md](docs/INK.md) | pens and the ink model |
-| [docs/EVALUATION.md](docs/EVALUATION.md) | legibility, repetition, speed, blind test |
+| [docs/BENCHMARK.md](docs/BENCHMARK.md) | readability and speed against other tools |
+| [docs/EVALUATION.md](docs/EVALUATION.md) | earlier legibility, repetition, speed and blind test |
 | [docs/COMPARISON.md](docs/COMPARISON.md) | this project against other tools |
-| [docs/CLI.md](docs/CLI.md) | command line, markup and Python API |
+| [docs/RESEARCH.md](docs/RESEARCH.md) | survey of handwriting generation, licences, choice of engine |
 | [docs/FAQ.md](docs/FAQ.md) | common questions |
 | [docs/PLAN.md](docs/PLAN.md) | project plan and status |
+| [CONTRIBUTING.md](CONTRIBUTING.md), [CHANGELOG.md](CHANGELOG.md), [DESIGN.md](DESIGN.md) | contributing, changes, visual rules for docs |
 
 ## V2 roadmap
 
@@ -224,7 +240,7 @@ ways the project can pay for its own compute.
    the line crops from `ductus style`, so personal glyphs (your `g`, your `7`) are copied, not
    approximated. Runs on a free Colab GPU in about 20 minutes.
 2. **Full character set.** Train the content encoder on a wider glyph set so `=`, `%`, `@`,
-   `<`, `>`, accented Latin and the rupee sign are written by the model instead of drawn as
+   `<`, `>`, accented Latin and currency signs are written by the model instead of drawn as
    marks or replaced.
 3. **GPU and Apple Silicon paths.** CUDA and MPS back ends with half precision and a batched
    DDIM sampler: a page in seconds instead of minutes.

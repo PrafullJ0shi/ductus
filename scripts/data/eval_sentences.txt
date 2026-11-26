@@ -1,6 +1,6 @@
 The sample mean is close to the true mean.
 Rolepool collects new crypto jobs every day.
-RupeeClarity explains interest on loans.
+A small tool explains interest on loans.
 BTC and ETH moved 4% before the Fed meeting.
 Call me at 9:30 tomorrow, not before.
 The variance of the data set was 12.5 units.
@@ -8,7 +8,7 @@ Quick brown foxes jump over lazy dogs.
 I bought 3 notebooks and 2 blue pens today.
 Standard deviation is the root of variance.
 AI tools can draft notes, but you check them.
-The train to Delhi leaves at 6 in the morning.
+The first train leaves at 6 in the morning.
 Please send the report by Friday evening.
 Python and C are my favourite languages.
 Gold and silver both fell on Thursday.
@@ -24,7 +24,7 @@ Each student wrote two pages of notes.
 Coffee first, then the maths homework.
 The quartile deviation ignores the extremes.
 We met near the library after lunch.
-Total cost: 450 rupees including the tax.
+Total cost: 450 including the tax.
 Never trust a chart without a labelled axis.
 GitHub Pages hosts the demo site for free.
 The correlation was weak but still positive.

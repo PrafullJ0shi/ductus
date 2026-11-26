@@ -4,6 +4,11 @@ This page explains what ductus does and why, step by step. For numbers see
 [EVALUATION.md](EVALUATION.md); for the survey that led to these choices see
 [RESEARCH.md](RESEARCH.md).
 
+> **Status.** The default writer is now the Graves RNN, with diffusion as the fallback and
+> as the style-copying writer. This page describes the diffusion writer in detail; the order
+> in which the writers are used, and the number of rounds, are in
+> [ARCHITECTURE.md](ARCHITECTURE.md#two-writers). Sections 2 to 5 apply to both writers.
+
 ## 1. Generator: one-shot line diffusion (DiffBrush, ICCV 2025)
 
 The 2016 approach (Graves 2013, as in greydanus/scribe) predicts pen offsets one step at a
@@ -41,14 +46,16 @@ Diffusion samples occasionally drop or swap a letter. ductus reads every carrier
 TrOCR (base, handwritten) and aligns the reading to the target words with an edit-distance
 DP over words. Each word crop is also read on its own. A word is accepted when the mean of
 the two character error rates is below the threshold and its width is plausible for its
-length. Failed words are regenerated in new carriers with new seeds, for up to 3 rounds; the
-best attempt is kept.
+length. Failed words are regenerated in new carriers with new seeds, for several rounds (6 with the
+default engine, 4 with `--engine diffusion`, 5 for `--look neat`); the best attempt is kept.
+With `--legibility strict` (default) the worse of the line and word errors counts, with
+`loose` the mean. A letter-shape check (`letterforms.py`) also rejects looped `f`, `r` and
+ascenders.
 
-| Look | Threshold | Intent |
+| Setting | Threshold | Intent |
 |---|---|---|
-| `neat` | 0.15 | legible; catches most slips |
-| `natural` | 0.25 | default; catches wrong and missing words |
-| `profile` | 0.50 | personal hand; only wrong or missing words, never neatened |
+| `neat`, and the default for every other look | 0.15 | legible; about one slip per seven letters |
+| `--legibility loose` with a profile | 0.50 (or the profile's `max_cer`) | personal hand; only wrong or missing words, never neatened |
 
 The thresholds are on normalised text (case and punctuation folded). The evaluation uses a
 different and larger OCR model as the judge so the check is not graded by itself.
@@ -74,8 +81,8 @@ superscript). The human part is in the parameters, all scaled by one `mess` valu
 
 ## 6. Ink and paper
 
-Words are rendered as ink coverage at 600 dpi. A smooth random pressure field and per-word
-pressure make some strokes darker; a slight blur gives bleed. The ink colour is multiplied
+Words are rendered as ink coverage at 600 dpi and inked by the pen model; see
+[INK.md](INK.md) and [PENS.md](PENS.md). The ink colour is multiplied
 onto the paper (white, ruled or 5 mm grid) and the result downsampled to 300 dpi A4. The
 optional phone-photo look adds perspective, lighting falloff, noise and JPEG compression.
 
@@ -87,7 +94,7 @@ OCR confidence check for upside-down), deskew, line segmentation, then the best 
 become reference images. It also measures habits from the photos (x-height in mm via the grid
 period, line pitch, baseline slope and its spread, word gaps, baseline residual, stroke
 width) and stores them in `profile.json` for `--look profile`. See
-[STYLE_GUIDE.md](STYLE_GUIDE.md).
+[STYLE_GUIDE.md](STYLE_GUIDE.md) and [HABITS.md](HABITS.md).
 
 ## Limits of the method
 

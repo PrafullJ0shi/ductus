@@ -5,7 +5,8 @@ title: ductus
 # ductus
 
 Text to handwritten A4 pages that look written by a person: notes, worked maths, lists and
-prose, in a style copied from a photo of real writing.
+prose, with plain readable letters and, optionally, the size, spacing and ink of your own
+writing measured from photos.
 
 [Source code and install](https://github.com/PrafullJ0shi/ductus)
 
@@ -17,14 +18,17 @@ prose, in a style copied from a photo of real writing.
 | **Checklist** | **Intro** |
 | ![Checklist](https://raw.githubusercontent.com/PrafullJ0shi/ductus/main/samples/checklist.jpg) | ![Intro](https://raw.githubusercontent.com/PrafullJ0shi/ductus/main/samples/intro.jpg) |
 
-## Pens
+## Pens and ink
 
-![Pens](assets/pens.png)
+Six pens and three tip sizes, inked at 600 dpi with a physical ink model. See
+[pens and tip sizes](PENS.md) and [the ink model](INK.md).
+
+![Old flat ink and new ballpoint ink](assets/ink-before-after.png)
 
 ## Read more
 
-- [Method](METHOD.md) and [architecture](ARCHITECTURE.md)
-- [Realism checklist](REALISM.md), [ink model](INK.md), [habit profile](HABITS.md)
-- [Evaluation](EVALUATION.md) and [comparison with other tools](COMPARISON.md)
+- [Architecture](ARCHITECTURE.md) and [method](METHOD.md)
+- [Realism checklist](REALISM.md), [pens](PENS.md), [ink model](INK.md), [writer profile and habits](HABITS.md)
+- [Benchmark](BENCHMARK.md), [evaluation](EVALUATION.md) and [comparison with other tools](COMPARISON.md)
 - [Research survey](RESEARCH.md)
 - [Command line](CLI.md), [style guide](STYLE_GUIDE.md), [FAQ](FAQ.md)

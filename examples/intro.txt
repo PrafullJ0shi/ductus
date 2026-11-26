@@ -3,6 +3,6 @@
 I'm a student studying data science and AI.
 I like to build small tools that people can actually use.
 
-My biggest project is Rolepool, a job board that collects new crypto jobs from many websites every day. I also made RupeeClarity, a simple C program that explains interest on loans and savings. Metal Future Forecast and BTC Signal are two sites that check what top traders on Hyperliquid are doing and give a long or short call for gold, silver and BTC.
+My biggest project is Rolepool, a job board that collects new crypto jobs from many websites every day. I also made a simple C program that explains interest on loans and savings. Metal Future Forecast and BTC Signal are two sites that check what top traders on Hyperliquid are doing and give a long or short call for gold, silver and BTC.
 
 I mostly code in Python and C. In my free time I follow the markets and keep learning new things.
