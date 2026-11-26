@@ -42,7 +42,7 @@ class Look:
     punct_gap: float = 0.35        # extra, uneven gap after , . ; :
     session: float = 0.5           # chance that a section rule starts a new "session" (slope, pressure)
     smudges: float = 0.6           # mean hand smudges per page
-    gap_xh: float = 0.75           # word gap in x-heights (measured from the reference when there is one)
+    gap_xh: float = 1.1            # word gap in x-heights (measured from the reference when there is one)
 
     @staticmethod
     def preset(name: str) -> "Look":
@@ -236,7 +236,7 @@ class Layouter:
     def gap(self, k=1.0):
         m = self.look.mess * (1 + 5 * self.look.fatigue * self.progress())   # spacing loosens when tired
         g = self.xh * self.look.gap_xh * (1 + self.rng.normal(0, 0.13 + 0.29 * m)) * k
-        return max(self.xh * 0.6, g)       # tighter than this reads as one word
+        return max(self.xh * 0.9, g)       # tighter than this reads as one word
 
     def slope_dy(self, w):
         return 0.0

@@ -62,6 +62,23 @@ def _downstrokes(seg, Ps, ci, xh, min_dy, need_climb, lo=0.35, hi=1.35):
     return out
 
 
+def _place(G, ch, mode, x_left, base, h, rng, text, ci, old_right):
+    """Draw one template letter and return (strokes, shift for the rest of the line). At the
+    start or end of a word the cursive letter's lead-in or tail would close the word gap, so
+    extra room is added there: the word split and the page layout both need a clear gap."""
+    first = ci == 0 or text[ci - 1] == " "
+    last = ci + 1 >= len(text) or text[ci + 1] == " "
+    if first and mode == "cursive":
+        _place.word_starts = getattr(_place, "word_starts", []) + [x_left]
+        x_left += 0.35 * h
+    new = G.draw(ch, mode, x_left, base, h, rng)
+    right_new = max(float(s_[:, 0].max()) for s_ in new)
+    dx = right_new + 0.12 * h - old_right
+    if last and mode == "cursive":
+        dx += 0.5 * h
+    return new, max(dx, -0.2 * h)
+
+
 def glyph_strokes(pts: np.ndarray, pos, text: str, mode: str = "cursive", rng=None) -> list[np.ndarray]:
     """Absolute points (x, y down, pen-up flag) -> strokes, with every lowercase r and f redrawn
     from the templates in glyphs.py ("cursive": the target hand's school-cursive r and looped f;
@@ -108,10 +125,9 @@ def glyph_strokes(pts: np.ndarray, pos, text: str, mode: str = "cursive", rng=No
                 a0, a1 = int(rr[0]), int(rr[-1])
                 h = float(np.clip(np.ptp(Rg[:, 1]), 0.75 * xh, 1.1 * xh))
                 base, x_left = float(Rg[:, 1].max()), float(Rg[:, 0].min())
-                new = G.draw(ch, mode, x_left, base, h, rng)
-                dx = max(float(s_[:, 0].max()) for s_ in new) + 0.12 * h - float(Rg[:, 0].max())
+                new, dx = _place(G, ch, mode, x_left, base, h, rng, text, ci, float(Rg[:, 0].max()))
                 if mode == "cursive":
-                    pts[a1 + 1:, 0] += max(dx, -0.2 * h)
+                    pts[a1 + 1:, 0] += dx
                 keep[a0:a1 + 1] = False; taken[a0:a1 + 1] = True
                 inserts[a0] = new
                 continue
@@ -171,6 +187,8 @@ def glyph_strokes(pts: np.ndarray, pos, text: str, mode: str = "cursive", rng=No
                     if s0 <= i0 + ie or taken[s0]:
                         continue
                     S = pts[s0:s1 + 1]
+                    if ch == "f" and text[ci + 1:ci + 2] == "t" and S[:, 0].mean() > xs + 0.25 * xh:
+                        continue                   # the t's own crossbar
                     if (np.ptp(S[:, 0]) < 1.4 * xh and np.ptp(S[:, 1]) < 0.45 * xh
                             and abs(S[:, 0].mean() - xs) < 0.8 * xh and np.all(np.abs(P[s0:s1 + 1] - ci - 1.0) < 1.8)):
                         keep[s0:s1 + 1] = False; taken[s0:s1 + 1] = True
@@ -181,17 +199,26 @@ def glyph_strokes(pts: np.ndarray, pos, text: str, mode: str = "cursive", rng=No
                             u += 1
                         keep[s0:s0 + u] = False; taken[s0:s0 + u] = True
             a0, a1 = i0 + j0, i0 + ie
-            new = G.draw(ch, mode, x_left, base, h, rng)
-            right_new = max(float(s_[:, 0].max()) for s_ in new)
-            dx = right_new + 0.12 * h - float(pts[a0:a1 + 1, 0].max())
+            new, dx = _place(G, ch, mode, x_left, base, h, rng, text, ci, float(pts[a0:a1 + 1, 0].max()))
+            # leftovers of the model's own letter (a stem drawn before the region, a stray end)
+            lo_p, hi_p = (0.3, 1.3) if ch == "r" else (-0.2, 1.0)
+            reach = 0.6
+            if ci == 0 or text[ci - 1] == " ":    # only a space before it: nothing else to eat
+                lo_p, reach = -0.6, 1.6
+            xr0, xr1 = float(pts[a0:a1 + 1, 0].min()), float(pts[a0:a1 + 1, 0].max())
+            own = np.where((P >= ci + lo_p) & (P < ci + hi_p) & keep & ~taken
+                           & (pts[:, 0] > xr0 - reach * xh) & (pts[:, 0] < xr1 + 0.2 * xh))[0]
             if mode == "cursive":
-                pts[a1 + 1:, 0] += max(dx, -0.2 * h)  # room for the wider cursive letter
+                pts[a1 + 1:, 0] += dx                 # room for the wider cursive letter
             keep[a0:a1 + 1] = False
             taken[a0:a1 + 1] = True
+            keep[own] = False; taken[own] = True
+            a0 = min(a0, int(own.min())) if len(own) else a0
             inserts[a0] = new
     if __import__("os").environ.get("GLYPH_LOG"):
         import sys as _s
         print(f"glyphs {mode}: {len(inserts)} of {sum(text.count(c) for c in 'rf')} r/f redrawn in {text!r}", file=_s.stderr)
+    starts_at = getattr(_place, "word_starts", [])
     strokes, cur = [], []
     for i in range(n):
         if i in inserts:
@@ -206,7 +233,18 @@ def glyph_strokes(pts: np.ndarray, pos, text: str, mode: str = "cursive", rng=No
             strokes.append(np.array(cur)); cur = []
     if cur:
         strokes.append(np.array(cur))
-    return [s for s in strokes if len(s) > 0]
+    strokes = [s for s in strokes if len(s) > 0]
+    if starts_at and mode == "cursive":            # stray ticks left of a redrawn word-initial letter
+        xh_ = 0.86 * max(1e-6, np.ptp(pts[:, 0])) / max(1, len(text.strip()))
+        news = {id(a) for v in inserts.values() for a in v}
+        def stray(s_):
+            if id(s_) in news or max(np.ptp(s_[:, 0]), np.ptp(s_[:, 1])) > 0.3 * xh_:
+                return False
+            cx = float(s_[:, 0].mean())
+            return any(xl - 1.2 * xh_ <= cx <= xl + 0.1 * xh_ for xl in starts_at)
+        strokes = [s_ for s_ in strokes if not stray(s_)]
+    _place.word_starts = []
+    return strokes
 
 
 def plain_r_strokes(pts, pos, text, rng=None):

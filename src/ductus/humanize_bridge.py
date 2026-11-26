@@ -46,12 +46,20 @@ def humanize_page(pg, words, L, rate: float, seed: int) -> None:
             over.setdefault(m.uid, []).append(m.points[0][0])
     new = []
     for ln in hp.lines:
+        shift, prev_right = 0.0, None
         for w in ln.words:
             i = w.meta["uid"]
             p = pg.words[i]
+            p.x += shift
             p.scale *= w.scale
             p.base += w.dy
             p.angle += w.rotate
+            # size drift grows words in place: keep the word gap (otherwise words run together)
+            if prev_right is not None and p.x < prev_right + 0.9 * L.xh:
+                d = prev_right + 0.9 * L.xh - p.x
+                p.x += d
+                shift += d
+            prev_right = p.x + words[p.idx].alpha.shape[1] * p.scale * p.sx
             for ci, d in zip(w.meta.get("overwrite_chars", []), over.get(i, [])):
                 n = max(1, len(w.text))
                 new.append(Placed(p.idx, p.x + d[0], p.base + d[1], p.scale, p.angle, p.ink * 0.9, p.sx,

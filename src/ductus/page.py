@@ -136,7 +136,7 @@ class Writer:
             if not R.available():
                 raise RuntimeError("--engine rnn needs the RNN model; see src/ductus/engines/rnn/__init__.py")
             eng = self.rnn(o.rnn_style, o.rnn_bias); eng.glyphs = o.glyphs
-            return eng, self.engine_lazy(), 4   # then diffusion for what still fails
+            return eng, self.engine_lazy(), 6 if o.glyphs == "cursive" else 4   # then diffusion for what still fails
         if mode == "auto" and R.available():
             eng = self.rnn(o.rnn_style, o.rnn_bias); eng.glyphs = o.glyphs
             return self.engine, eng, 2
@@ -261,7 +261,7 @@ def _match_reference(look: Look, refs, prof) -> None:
     hs = [ref_habits(r) for r in refs[:8] if r is not None]
     gaps = [h["gap_xh"] for h in hs if "gap_xh" in h]
     if gaps and not (prof and "gap_xh" in prof.get("look", {})):
-        look.gap_xh = float(np.median(gaps))
+        look.gap_xh = max(1.0, float(np.median(gaps)))   # cursive r/f lead-ins need a clear gap
     sx = [h["stroke_xh"] for h in hs if "stroke_xh" in h]
     look._ref_stroke_xh = float(np.median(sx)) if sx else None
     if prof and prof.get("look", {}).get("stroke_xh"):
@@ -362,7 +362,7 @@ def write_lines(writer: "Writer", lines: list[str], o: Options) -> tuple[list[np
     return out, stats
 
 
-CACHE_VERSION = 11  # bump when word synthesis changes
+CACHE_VERSION = 15  # bump when word synthesis changes
 
 
 def _cache_dir():

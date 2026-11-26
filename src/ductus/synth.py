@@ -8,6 +8,7 @@ zone, and every occurrence of a word is a fresh sample, so no two copies match.
 from __future__ import annotations
 
 import re
+import sys
 import random
 from dataclasses import dataclass, field
 
@@ -46,6 +47,25 @@ def align_words(targets: list[str], hyp: list[str]) -> list[str]:
     return out
 
 
+
+def _drop_specks(sub: np.ndarray, xh: float) -> np.ndarray:
+    """Remove tiny isolated marks that are not i/j dots (nothing below them within 1.2 xh)."""
+    from scipy import ndimage
+    m = sub > 0
+    lab, n = ndimage.label(m, structure=np.ones((3, 3)))
+    if n < 2:
+        return sub
+    out = sub.copy()
+    for i, sl in enumerate(ndimage.find_objects(lab), 1):
+        h, w_ = sl[0].stop - sl[0].start, sl[1].stop - sl[1].start
+        if max(h, w_) > 0.3 * xh:
+            continue
+        below = m[sl[0].stop:min(m.shape[0], sl[0].stop + int(1.2 * xh)), max(0, sl[1].start - 2):sl[1].stop + 2]
+        if below.any():
+            continue                       # a dot over a stem
+        out[lab == i] = 0
+    return out
+
 @dataclass
 class WordImage:
     text: str
@@ -56,6 +76,7 @@ class WordImage:
     read: str = ""
 
 
+_DEBUG = bool(__import__("os").environ.get("DUCTUS_DEBUG"))
 SOLO = re.compile(r"^[(\[]?[0-9A-Za-z]{1,2}[).\]]$")
 
 
@@ -169,10 +190,15 @@ class Synthesizer:
                     items = []
                     for k, ((wid, w), (x0, x1)) in enumerate(zip(group, real)):
                         sub = a[:, max(0, x0 - 1):x1 + 1]
+                        if getattr(eng, "glyphs", "") == "cursive" and w.isalpha():
+                            sub = _drop_specks(sub, xh)   # leftovers of the r/f redraw
                         if tight_bbox(sub) is None:
                             continue
                         ratio = (x1 - x0) / max(1.0, cw * len(w))
-                        items.append((wid, w, sub, img[:, max(0, x0 - 1):x1 + 1], k, ratio))
+                        rgb = img[:, max(0, x0 - 1):x1 + 1].copy()
+                        if getattr(eng, "glyphs", "") == "cursive" and w.isalpha():
+                            rgb[sub <= 0] = 255 if rgb.dtype == np.uint8 else 1.0
+                        items.append((wid, w, sub, rgb, k, ratio))
                     # word-level read-back as a second opinion (catches split errors and
                     # misspellings the line-level language prior quietly corrects)
                     word_reads = None
@@ -183,6 +209,11 @@ class Synthesizer:
                             e_line = self._accept(w, read_words[k])
                             e_word = self._accept(w, word_reads[n]) if (len(normalise(w)) >= 3 or any(c.isdigit() for c in w)) else e_line
                             err = max(e_line, e_word) if self.strict else 0.5 * (e_line + e_word)
+                            lw = normalise(w)
+                            if (self._glyph_mode == "cursive" and lw and not any(c.isdigit() for c in w)
+                                    and sum(c in "rf" for c in lw) >= 0.4 * len(lw)
+                                    and abs(len(re.sub(r"[^a-z]", "", normalise(word_reads[n]))) - len(lw)) <= 1):
+                                err = e_line     # isolated word OCR cannot read the cursive r/f; the line read can
                         else:
                             err = 0.0
                         lo, hi = (0.55, 1.9) if self.strict and not self.loose else (0.4, 2.4)
@@ -196,6 +227,9 @@ class Synthesizer:
                             if fl:
                                 err = max(err, max(0.6, self.max_cer + 0.05))   # looped f/r etc: write it again
                                 self.stats["flourish_rejects"] = self.stats.get("flourish_rejects", 0) + 1
+                        if _DEBUG:
+                            print(f"word {w!r} line={read_words[k] if read_words else None!r} "
+                                  f"word={word_reads[n] if word_reads else None!r} ratio={ratio:.2f} err={err:.2f}", file=sys.stderr)
                         r = read_words[k] if read_words is not None else ""
                         # size by mean letter width: the row-profile x-height is fooled by ascenders
                         wxh = float(np.clip(cw * getattr(eng, "xh_per_cw", 1.15), 0.5 * xh, 1.5 * xh))
@@ -203,6 +237,11 @@ class Synthesizer:
                         if getattr(eng, "per_word_xh", False):
                             wbl, wxh = word_band(sub, wxh, bl)   # RNN lines drift: own baseline and size
                         cand = WordImage(w, sub, wbl, wxh, 1.0 - err, r)
+                        if _DEBUG:
+                            import os
+                            from PIL import Image as _I
+                            os.makedirs("/tmp/dbg_words", exist_ok=True)
+                            _I.fromarray((255 - np.clip(sub, 0, 1) * 255).astype(np.uint8)).save(f"/tmp/dbg_words/r{rnd}_{wid}_{w}.png")
                         if wid not in best or cand.score > best[wid].score:
                             best[wid] = cand
             pending = [(wid, w) for wid, w in pending
