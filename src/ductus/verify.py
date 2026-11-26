@@ -33,6 +33,23 @@ def cer(ref: str, hyp: str) -> float:
     return levenshtein(ref, hyp) / max(1, len(ref))
 
 
+def cer_wild(ref: str, hyp: str, wild: str = "") -> float:
+    """CER where substituting a reference letter in `wild` costs nothing. Used for letters the
+    generator redraws in a hand the OCR model was not trained on (a school-cursive r or f):
+    the OCR cannot judge them, the template fixes their shape, and a missing letter still counts."""
+    ref = " ".join(ref.split()); hyp = " ".join(hyp.split())
+    if not wild:
+        return cer(ref, hyp)
+    prev = list(range(len(hyp) + 1))
+    for i, ca in enumerate(ref, 1):
+        cur = [i]
+        for j, cb in enumerate(hyp, 1):
+            sub = 0 if (ca == cb or ca in wild) else 1
+            cur.append(min(prev[j] + 1, cur[j - 1] + 1, prev[j - 1] + sub))
+        prev = cur
+    return prev[-1] / max(1, len(ref))
+
+
 def normalise(s: str) -> str:
     """Case and punctuation insensitive form used for scoring the generator, not the OCR."""
     import re

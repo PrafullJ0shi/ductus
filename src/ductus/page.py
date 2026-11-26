@@ -65,6 +65,7 @@ class Options:
     engine: str = "default"          # default (rnn if installed, else diffusion) | rnn | diffusion | auto
     rnn_style: int | None = 1        # built-in RNN writer style 0-7; 1 has plain print r, f and l
     rnn_bias: float = 1.5            # RNN sampling bias: higher is neater
+    glyphs: str = "cursive"              # r and f: cursive (school-cursive r, looped f) | print | off
     legibility: str = "strict"       # strict (default: line + word read-back) | loose (personal hands, old behaviour)
     plain: str = "abcdefghijklmnopqrstuvwxyz"          # letters that must use the plain form (no looped f/r/ascenders); "" = allow loops
     look: str = "natural"            # neat | natural | messy | profile
@@ -134,9 +135,11 @@ class Writer:
         if mode == "rnn" or (mode == "default" and R.available()):
             if not R.available():
                 raise RuntimeError("--engine rnn needs the RNN model; see src/ductus/engines/rnn/__init__.py")
-            return self.rnn(o.rnn_style, o.rnn_bias), self.engine_lazy(), 4   # then diffusion for what still fails
+            eng = self.rnn(o.rnn_style, o.rnn_bias); eng.glyphs = o.glyphs
+            return eng, self.engine_lazy(), 4   # then diffusion for what still fails
         if mode == "auto" and R.available():
-            return self.engine, self.rnn(o.rnn_style, o.rnn_bias), 2
+            eng = self.rnn(o.rnn_style, o.rnn_bias); eng.glyphs = o.glyphs
+            return self.engine, eng, 2
         return self.engine, None, 99
 
     def engine_lazy(self):
@@ -200,7 +203,7 @@ class Writer:
             prim, fb, pr = self.engines(o)
             syn = Synthesizer(prim, ref, self.reader if o.verify else None, fallback=fb, primary_rounds=pr, fallback_all=o.engine == "auto", max_cer=max_cer,
                               loose=personal, seed=o.seed * 1000 + ci * 37, log=o.log,
-                              strict=strict, rounds=(pr + 2) if fb is not None and pr < 99 else (5 if o.look == "neat" else 4), plain=o.plain, letter_profile=_letters(o.style))
+                              strict=strict, rounds=(pr + 2) if fb is not None and pr < 99 else (5 if o.look == "neat" else 4), plain=_plain_letters(o), letter_profile=_letters(o.style))
             words += syn.run([texts[i] for i in idx])
             for k in stats:
                 stats[k] += syn.stats.get(k, 0)
@@ -320,7 +323,7 @@ def write_lines(writer: "Writer", lines: list[str], o: Options) -> tuple[list[np
     prim, fb, pr = writer.engines(o)
     syn = Synthesizer(prim, refs[0], writer.reader if o.verify else None, fallback=fb, primary_rounds=pr, fallback_all=o.engine == "auto", max_cer=max_cer,
                       loose=bool(prof), seed=o.seed, log=o.log,
-                      strict=o.legibility != "loose", rounds=(pr + 2) if fb is not None and pr < 99 else (5 if o.look == "neat" else 4), plain=o.plain, letter_profile=_letters(o.style))
+                      strict=o.legibility != "loose", rounds=(pr + 2) if fb is not None and pr < 99 else (5 if o.look == "neat" else 4), plain=_plain_letters(o), letter_profile=_letters(o.style))
     ckey = _cache_key(["lines"] + flat, o, max_cer, o.steps)
     cached = _cache_get(ckey) if o.cache else None
     if cached is not None:
@@ -359,7 +362,7 @@ def write_lines(writer: "Writer", lines: list[str], o: Options) -> tuple[list[np
     return out, stats
 
 
-CACHE_VERSION = 9  # bump when word synthesis changes
+CACHE_VERSION = 11  # bump when word synthesis changes
 
 
 def _cache_dir():
@@ -377,7 +380,7 @@ def _cache_key(texts, o, max_cer, steps) -> str:
         f = sp / "profile.json" if sp.is_dir() else sp
         if f.exists():
             sig = [o.style, hashlib.sha1(f.read_bytes()).hexdigest()]
-    k = json.dumps([CACHE_VERSION, o.engine, o.rnn_style, o.rnn_bias, texts, sig, o.look, o.seed, max_cer, o.verify, steps, o.mode, o.plain, o.legibility], default=str)
+    k = json.dumps([CACHE_VERSION, o.engine, o.rnn_style, o.rnn_bias, o.glyphs, texts, sig, o.look, o.seed, max_cer, o.verify, steps, o.mode, o.plain, o.legibility], default=str)
     return hashlib.sha1(k.encode()).hexdigest()
 
 
@@ -445,3 +448,11 @@ def _letters(style) -> dict | None:
         return None
     f = Path(style) / "letters.json"
     return json.loads(f.read_text()) if f.exists() else None
+
+
+def _plain_letters(o: "Options") -> str:
+    """Letters the loop check holds to the plain form. With --glyphs cursive the r and f are the
+    writer's own looped school-cursive forms, drawn from templates, so they are not checked."""
+    if getattr(o, "glyphs", "") == "cursive":
+        return "".join(c for c in o.plain if c not in "rf")
+    return o.plain

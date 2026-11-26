@@ -21,7 +21,7 @@ def cmd_write(a):
     if a.text:
         text = a.text
     o = Options(style=a.style, look=a.look, mode=a.mode, paper=a.paper, photo=a.photo, ink=a.ink,
-                seed=a.seed, steps=a.steps, verify=not a.no_verify, max_cer=a.max_cer, cache=not a.no_cache, plain="" if a.allow_loops else "abcdefghijklmnopqrstuvwxyz", legibility=a.legibility, engine=a.engine, rnn_style=a.rnn_style, rnn_bias=a.rnn_bias,
+                seed=a.seed, steps=a.steps, verify=not a.no_verify, max_cer=a.max_cer, cache=not a.no_cache, plain="" if a.allow_loops else "abcdefghijklmnopqrstuvwxyz", legibility=a.legibility, engine=a.engine, rnn_style=a.rnn_style, rnn_bias=a.rnn_bias, glyphs=a.glyphs,
                 corrections=a.corrections, pen=a.pen, tip=a.tip, weight=a.weight,
                 flat_ink=a.flat_ink, ink_model=a.ink_model, humanize=a.humanize, size=a.size,
                 log=(lambda *x: None) if a.quiet else (lambda *x: print(*x, file=sys.stderr)))
@@ -99,6 +99,7 @@ def main(argv=None):
                    help="default: RNN letters (plain, readable, fast) when installed, else diffusion; "
                         "diffusion: letter shapes copied from --style; auto: diffusion, RNN for words that do not read")
     w.add_argument("--rnn-style", type=int, default=1, help="built-in RNN writer style 0-7 (1: plain print letters)")
+    w.add_argument("--glyphs", choices=["cursive", "print", "off"], default="cursive", help="r and f: cursive (school-cursive r, looped f, default), print (plain print), off (as the RNN writes them)")
     w.add_argument("--rnn-bias", type=float, default=1.5, help="RNN neatness (higher = neater)")
     w.add_argument("--legibility", default="strict", choices=["strict", "loose"],
                    help="strict (default): every word must pass the line and word OCR read-back; loose: only catch wrong or missing words")

@@ -14,7 +14,7 @@ from dataclasses import dataclass, field
 import numpy as np
 
 from .segment import split_by_length, clean_line, split_words, baseline_and_xheight, tight_bbox
-from .verify import cer, normalise
+from .verify import cer, cer_wild, normalise
 from .letterforms import flourishes
 
 FILLER = ("and the of with over into from about under while still both more when then "
@@ -118,7 +118,8 @@ class Synthesizer:
                 return 1.0
             # the crop must not hold a neighbouring word (the read has letters or digits)
             return 1.0 if normalise(read) else 0.0
-        return cer(t, r)
+        wild = "rf" if getattr(self, "_glyph_mode", "") == "cursive" else ""
+        return cer_wild(t, r, wild)
 
     def run(self, texts: list[str]) -> list[WordImage]:
         """Return one WordImage per input word (same order)."""
@@ -137,6 +138,7 @@ class Synthesizer:
                 todo = [(wid, w) for wid, w in pending if eng.supported(w)]   # others wait for the fallback
                 if not todo:
                     eng, todo = self.fallback, pending
+            self._glyph_mode = getattr(eng, "glyphs", "")
             if hasattr(eng, "round"):
                 eng.round = rnd                  # the RNN writes neater on later rounds
             carriers = self._carriers(todo, rng)
