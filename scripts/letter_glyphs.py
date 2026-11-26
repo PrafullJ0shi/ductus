@@ -2,6 +2,7 @@
 
   python scripts/letter_glyphs.py OUT_DIR LINE.png [LINE.png ...]
   python scripts/letter_glyphs.py OUT_DIR --profile styles/my-hand        (uses its refs/)
+  python scripts/letter_glyphs.py OUT_DIR --pages styles/my-hand/debug/page*_ink.png   (every line)
 
 Each line is cut into ink components (i-dots and t-bars merged with their stem); every
 component is read on its own by the OCR model, and kept when it reads as exactly one letter or
@@ -51,7 +52,7 @@ def zone_of(cy, bl, xh):
 
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument("out"); ap.add_argument("lines", nargs="*"); ap.add_argument("--profile")
+    ap.add_argument("out"); ap.add_argument("lines", nargs="*"); ap.add_argument("--profile"); ap.add_argument("--pages", nargs="*", default=[])
     ap.add_argument("--min-conf", type=float, default=0.6)
     a = ap.parse_args()
     files = [Path(f) for f in a.lines]
@@ -61,8 +62,18 @@ def main():
     R = Reader()
     out = Path(a.out); (out / "glyphs").mkdir(parents=True, exist_ok=True)
     stats, count = {}, {}
-    for f in files:
-        g = cv2.imread(str(f), 0)
+    grays = [cv2.imread(str(f), 0) for f in files]
+    if a.pages:
+        from ductus.profile import line_crops
+        for pf in a.pages:
+            pg = cv2.imread(pf, 0)
+            if pg is None:
+                continue
+            for ln in line_crops(1.0 - pg.astype(np.float32) / 255):
+                c = ln["crop"]
+                c = c.astype(np.float32) / (255.0 if c.max() > 1.5 else 1.0)
+                grays.append((255 * (1 - np.clip(c, 0, 1))).astype(np.uint8))
+    for g in grays:
         if g is None:
             continue
         alpha = ink_alpha(g)

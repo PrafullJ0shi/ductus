@@ -50,8 +50,8 @@ def flourishes(alpha: np.ndarray, text: str, baseline: float, xh: float,
 
     ``profile``: per-letter loop rates measured from the writer's own pages
     (scripts/letter_glyphs.py -> letters.json). With 3 or more samples of a letter, a loop in a
-    zone is allowed when the writer uses it in at least 20% of samples and rejected when he
-    almost never does; letters without samples fall back to the plain-print rules above."""
+    zone is allowed when the writer uses it in at least 20% of samples; everything else follows
+    the plain-print rules above."""
     cols = np.where((alpha > 0.35).any(axis=0))[0]
     if len(cols) == 0 or not text:
         return []
@@ -79,8 +79,11 @@ def flourishes(alpha: np.ndarray, text: str, baseline: float, xh: float,
 
 
 def _forbidden(ch: str, zone: str, profile: dict | None) -> bool:
-    if profile and ch in profile and profile[ch].get("n", 0) >= 3:
-        return profile[ch].get(zone, 0.0) < 0.2
+    # the writer's own samples can only allow a loop (he uses it in at least 20% of samples);
+    # they never forbid one the plain form has, since a missed counter in a small photo crop
+    # would otherwise reject correct letters
+    if profile and ch in profile and profile[ch].get("n", 0) >= 3 and profile[ch].get(zone, 0.0) >= 0.2:
+        return False
     if not ch.isalpha() or not ch.islower():
         return False
     return ch in NO_LOOP[zone]
