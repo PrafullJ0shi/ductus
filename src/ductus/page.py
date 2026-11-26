@@ -359,7 +359,7 @@ def write_lines(writer: "Writer", lines: list[str], o: Options) -> tuple[list[np
     return out, stats
 
 
-CACHE_VERSION = 7  # bump when word synthesis changes
+CACHE_VERSION = 8  # bump when word synthesis changes
 
 
 def _cache_dir():

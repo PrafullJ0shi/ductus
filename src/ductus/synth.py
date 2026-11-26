@@ -7,6 +7,7 @@ zone, and every occurrence of a word is a fresh sample, so no two copies match.
 """
 from __future__ import annotations
 
+import re
 import random
 from dataclasses import dataclass, field
 
@@ -55,6 +56,9 @@ class WordImage:
     read: str = ""
 
 
+SOLO = re.compile(r"^[(\[]?[0-9A-Za-z]{1,2}[).\]]$")
+
+
 @dataclass
 class Synthesizer:
     engine: object
@@ -77,7 +81,11 @@ class Synthesizer:
     def _carriers(self, words: list[tuple[int, str]], rng: random.Random):
         """Greedy pack (id, text) pairs into carrier strings of exactly CARRIER_LEN chars."""
         out, cur, n = [], [], 0
+        solo = []
         for wid, w in words:
+            if SOLO.match(w):          # "4)", "(b)": the gap inside them looks like a word gap
+                solo.append([(wid, w)])
+                continue
             extra = len(w) + (1 if cur else 0)
             if cur and n + extra > CARRIER_LEN:
                 out.append(cur)
@@ -87,7 +95,7 @@ class Synthesizer:
             n += extra
         if cur:
             out.append(cur)
-        carriers = []
+        carriers = [(g, g[0][1]) for g in solo]
         for group in out:
             text = " ".join(w for _, w in group)
             fill = []
