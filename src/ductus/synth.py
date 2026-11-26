@@ -125,10 +125,6 @@ class Synthesizer:
                 break
             eng = self.engine if (rnd < self.primary_rounds or self.fallback is None) else self.fallback
             todo = pending
-            if eng is self.fallback and not self.fallback_all and hasattr(self.engine, "supported"):
-                todo = [(wid, w) for wid, w in pending if not self.engine.supported(w) or wid not in best]
-                if not todo:
-                    continue
             if eng is self.engine and self.fallback is not None and hasattr(eng, "supported"):
                 todo = [(wid, w) for wid, w in pending if eng.supported(w)]   # others wait for the fallback
                 if not todo:
