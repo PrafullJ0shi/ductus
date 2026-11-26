@@ -3,7 +3,7 @@
   python scripts/make_samples.py OUT_FULL [SAMPLES_DIR] [names...]
 Full-resolution A4 PNG + PDF go to OUT_FULL; reduced PNGs for the repository go to SAMPLES_DIR.
 """
-import json, sys, time
+import os, json, sys, time
 from pathlib import Path
 
 import cv2
@@ -18,20 +18,25 @@ EX = Path(__file__).resolve().parents[1] / "examples"
 
 JOBS = [
     # name, text file, options
-    ("intro", "intro.txt", dict(mode="plain", look="natural", style="slant", seed=11)),
+    ("intro", "intro.txt", dict(mode="plain", look="natural", seed=11)),
     ("definitions", "definitions.txt", dict(mode="notes", look="natural", seed=3)),
-    ("maths", "maths.txt", dict(mode="maths", look="natural", style="upright", seed=5)),
-    ("checklist", "checklist.txt", dict(mode="notes", look="natural", style="round", seed=9)),
-    ("intro-neat", "intro.txt", dict(mode="plain", look="neat", style="upright", seed=2)),
+    ("maths", "maths.txt", dict(mode="maths", look="natural", seed=5)),
+    ("checklist", "checklist.txt", dict(mode="notes", look="natural", seed=9)),
+    ("intro-neat", "intro.txt", dict(mode="plain", look="neat", seed=2)),
     ("intro-messy", "intro.txt", dict(mode="plain", look="messy", seed=4)),
-    ("notes-grid-blue", "notes-statistics.txt", dict(mode="notes", look="natural", style="loose",
-                                                    paper="grid", seed=6)),
-    ("checklist-ruled-black", "checklist.txt", dict(mode="notes", look="natural", style="slant",
-                                                   paper="ruled", pen="black-ballpoint", seed=8)),
-    ("notes-photo", "notes-statistics.txt", dict(mode="notes", look="messy",
-                                                paper="grid", photo=True, seed=10)),
+    ("notes-grid-blue", "notes-statistics.txt", dict(mode="notes", look="natural", paper="grid", seed=6)),
+    ("checklist-ruled-black", "checklist.txt", dict(mode="notes", look="natural", paper="ruled", pen="black-ballpoint", seed=8)),
+    ("notes-photo-a4", "notes-statistics.txt", dict(mode="notes", look="natural", photo="a4", seed=10)),
+    ("notes-photo-notebook", "notes-statistics.txt", dict(mode="notes", look="natural", photo="notebook", seed=10)),
 ]
 
+# DUCTUS_STYLE=<profile dir> writes every job in that hand (look "profile" unless neat)
+STYLE = os.environ.get("DUCTUS_STYLE")
+if STYLE:
+    for _, _, kw in JOBS:
+        kw["style"] = STYLE
+        if kw.get("look") == "natural":
+            kw["look"] = "profile"
 w = Writer()
 log = {}
 for name, src, kw in JOBS:
