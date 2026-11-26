@@ -155,9 +155,14 @@ of the user's notes by `python -m ductus.realism.calibrate` (`calibration.json`,
 - Behaviour: `humanize_bridge.humanize_page` runs `drift_size_slant` and `add_overwrites` on
   the laid-out page (`--humanize RATE`, off for `--look neat`). Fatigue, tightening, margins and
   squeezed line ends stay in `layout.py`, which already does them.
-- Photo: `--photo` uses `realism.phone_capture.capture`; the older model stays in `photo.py`.
+- Photo: `--photo` uses `realism.phone_capture.capture` with one of two surfaces
+  (`CaptureParams.surface`): `a4` (default; a loose sheet on a desk: no spiral, no pages below,
+  one or two corners lifted with a soft cast shadow, a gentle bow, contact shadow along the
+  edges, no show-through) and `notebook` (spiral binding, pages below, curl at the binding,
+  grid paper by default). The older model stays in `photo.py`.
 
-Before/after images: [phone capture](../examples/phone_compare.jpg),
+Before/after images: [loose A4 photo](../examples/photo_a4_compare.jpg),
+[notebook photo](../examples/photo_notebook_compare.jpg), [notebook (package demo)](../examples/phone_compare.jpg),
 [human errors](../examples/human_errors_compare.png), [pens](../examples/ink_pens.png).
 
 Evidence numbers in the tables below refer to the "Further sources" list in this section.

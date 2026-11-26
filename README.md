@@ -35,8 +35,9 @@ add the habits of a person writing on paper.
   smudges. Each detail is listed with its source in [docs/REALISM.md](docs/REALISM.md).
 - **Real ink.** Ballpoint, gel, fountain pen or pencil, with speed-dependent density, blobs,
   skips, rough edges and darker overlaps ([docs/INK.md](docs/INK.md)).
-- **Paper and camera.** White A4 (default), ruled or 5 mm grid; `--photo` simulates a
-  phone picture with keystone, page curl, shadow, white balance, noise and JPEG.
+- **Paper and camera.** White A4 (default), ruled or 5 mm grid. `--photo a4` (a loose sheet
+  on a desk, the default photo) or `--photo notebook` (a spiral grid pad) simulates a phone
+  picture with keystone, curl, shadow, white balance, noise and JPEG, calibrated on a real one.
 - **Outputs.** 300 dpi PNG, PDF, SVG and an SVG that writes itself.
 
 ## Before and after
@@ -108,7 +109,8 @@ TrOCR (no account needed).
 ductus write examples/definitions.txt -o out/defs --mode notes
 ductus write examples/maths.txt -o out/maths --mode maths --paper grid
 ductus write --text "Hello from ductus" -o out/hello --pen fountain --animate
-ductus write notes.txt -o out/photo --photo --pen black-gel --tip 0.7
+ductus write notes.txt -o out/photo --photo --pen black-gel --tip 0.7      # loose A4 sheet
+ductus write notes.txt -o out/pad --photo notebook                          # spiral grid notebook
 
 # your own hand: build a profile from photos of your pages, then write with it
 ductus style page1.jpg page2.jpg page3.jpg -o styles/my-hand
@@ -121,18 +123,39 @@ ductus write notes.txt -o out/mine --style styles/my-hand --look profile --mode 
 | `--mode` | `plain`, `notes`, `maths` |
 | `--pen` | `blue-ballpoint` (default), `black-ballpoint`, `blue-gel`, `black-gel`, `fountain`, `pencil` |
 | `--tip` | `0.5`, `0.7`, `1.0` mm |
-| `--paper` | `white` (default), `ruled`, `grid` |
-| `--photo` | phone-photo capture |
+| `--paper` | `white` (default), `ruled`, `grid` (default with `--photo notebook`) |
+| `--photo` | `a4` (default when given alone), `notebook` |
+| `--ink-model` | `realism` (default), `pens`, `flat` |
+| `--humanize` | rate of the human-error pass, `0` to `1` (default `0.5`; off for `neat`) |
 
 Full reference: [docs/CLI.md](docs/CLI.md). Markup cheat sheet: [docs/CLI.md#markup](docs/CLI.md#markup).
 
 ## Pens
 
-![The same passage in each pen](docs/assets/pens.png)
+![The same passage in each pen](docs/assets/pens.jpg)
 
 Each pen has its own colour, line width, pressure response and texture. The ink model
 renders the pen's path at 600 dpi and deposits ink by speed, pauses and overlaps, then
 mixes it with the paper by the Beer-Lambert law. Details in [docs/INK.md](docs/INK.md).
+
+## Phone photo
+
+Without `--photo` the output is a clean white A4 page. With it, the page is photographed by a
+simulated phone camera: sheet on a desk, perspective, light falloff and shadow, white balance,
+defocus, sensor noise, sharpening and JPEG, in that order, with parameters measured from a real
+phone photo of handwritten notes (`src/ductus/realism/calibration.json`).
+
+**`--photo a4`** (default): one loose white A4 sheet on a desk. No spiral or grid; a corner or
+edge lifts slightly off the desk and casts a soft shadow.
+
+![Clean page and --photo a4](docs/assets/photo_a4_compare.jpg)
+
+**`--photo notebook`**: a spiral-bound grid pad with pages below and curl at the binding. Grid
+paper is the default here; `--paper` overrides it.
+
+![Grid page and --photo notebook](docs/assets/photo_notebook_compare.jpg)
+
+Details and sources: [docs/REALISM.md](docs/REALISM.md#g-the-realism-package-srcductusrealism).
 
 ## How it works
 

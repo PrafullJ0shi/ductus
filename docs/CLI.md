@@ -25,7 +25,10 @@ ductus write INPUT -o OUT [options]
 | `--look` | `natural` | `neat`, `natural`, `messy`, or `profile` (use the measured habits of a profile) |
 | `--mode` | `plain` | `plain`, `notes` (auto-detects `Term: meaning`), `maths` (`= ...` lines align) |
 | `--paper` | `white` | `white` A4, `ruled`, or `grid` (5 mm) |
-| `--photo` | off | phone-photo look: perspective, light falloff, noise, JPEG |
+| `--photo [a4\|notebook]` | off | phone photo of the page. `a4` (default when the flag is given alone): one loose white sheet on a desk, slight corner/edge lift, contact shadow. `notebook`: spiral-bound grid pad, pages below, curl at the binding. Both use the same calibrated camera pipeline |
+| `--ink-model` | `realism` | `realism` (calibrated striations, skips, blobs, overlap darkening), `pens` (simpler model), `flat` |
+| `--humanize` | `0.5` | rate of the human-error pass on the laid-out page (size and baseline drift, retouched letters); ignored for `--look neat` |
+| `--no-cache` | off | generate words afresh instead of reusing `~/.cache/ductus/words` |
 | `--ink` | `#1c2a6e` | ink colour |
 | `--pen` | `1.0` | stroke weight multiplier |
 | `--size` | `2.8` | x-height in mm |

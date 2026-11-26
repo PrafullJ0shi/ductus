@@ -2,6 +2,16 @@
 
 All notable changes are listed here. Versions follow semantic versioning.
 
+## Unreleased
+
+- Calibrated ink model (`--ink-model realism`, default): striations, skips, flow variation,
+  blobs and overlap darkening, composited in linear light at 600 dpi.
+- Phone photo surfaces: `--photo a4` (loose white sheet on a desk, default) and
+  `--photo notebook` (spiral grid pad), sharing one camera pipeline calibrated on a real photo.
+- Human-error pass on the laid-out page (`--humanize`): size and baseline drift, retouched letters.
+- Word cache: re-rendering the same text with other pens, paper or photo settings reuses the
+  generated words (`--no-cache` to disable).
+
 ## 0.1.0 - 2026-11-26
 
 First public version.
