@@ -83,7 +83,7 @@ that run (see [STYLE_GUIDE.md](STYLE_GUIDE.md)).
 
 | # | Detail | Why / evidence | Implementation | Status | Checked |
 |---|---|---|---|---|---|
-| 35 | Arrows drawn by hand, open heads, slightly curved | personal arrow habit | quadratic shaft with wobble, two open head strokes | done | pending |
+| 35 | Arrows drawn by hand, open heads, slightly curved | personal arrow habit | wobbling shaft with slight tilt; open head drawn in one or two strokes | done | pending |
 | 36 | Underlines of uneven length | drawn freehand | random overshoot and undershoot | done | |
 | 37 | Ticks of varying size | drawn fresh each time | random size and angle | done | |
 | 38 | Circles not closed or overlapping | one quick loop | ellipse with 1.12 turns and random start | done | pending |

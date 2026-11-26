@@ -121,6 +121,11 @@ class Writer:
         if o.size:
             look.xh_mm = o.size
         rng = random.Random(o.seed)
+        if prof and o.look != "neat":
+            from . import habits as H
+            hb = H.load(o.style)
+            H.apply_look(look, hb)
+            text = H.apply_text(text, hb, o.seed)
         blocks = markup.parse(text, o.mode)
         add_corrections(blocks, look.corrections, rng)
         word_objs = [w for b in blocks for w in markup.block_words(b)]

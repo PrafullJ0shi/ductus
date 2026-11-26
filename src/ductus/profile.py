@@ -198,6 +198,49 @@ def build(photos: list[str], out_dir: str, name: str = "my-hand", reader=None, m
     mess = np.clip(look["baseline_resid_xh"] * 4 + look["slope_sd"] / 3 + look["gap_sd_xh"] / 2, 0.1, 1.0)
     look["mess"] = round(float(mess), 2)
     prof = {"name": name, "refs": refs, "look": look, "pages": len(photos), "lines_found": len(all_lines),
-            "grid_px": grid_px, "ocr_mode": "loose"}
+            "grid_px": grid_px, "ocr_mode": "loose", "habits": measure_habits(all_lines, xh)}
     (out / "profile.json").write_text(json.dumps(prof, indent=2))
     return prof
+
+
+def measure_habits(lines: list[dict], xh: float) -> dict:
+    """Page-level habits from the segmented lines of all pages: growth of the writing and
+    tightening of the lines toward the page end, left-margin spread, how often and how much
+    larger headings are, and the space left between sections."""
+    import numpy as np
+    by_page: dict[int, list] = {}
+    for l in lines:
+        by_page.setdefault(l["page"], []).append(l)
+    grow, tight, margins, sections = [], [], [], []
+    for pls in by_page.values():
+        pls = sorted(pls, key=lambda l: l["y"][0])
+        if len(pls) < 6:
+            continue
+        t = np.linspace(0, 1, len(pls))
+        sizes = np.array([l["xh"] for l in pls], float)
+        body = sizes < 1.3 * np.median(sizes)
+        if body.sum() >= 4:
+            k = np.polyfit(t[body], sizes[body] / np.median(sizes[body]), 1)[0]
+            grow.append(k)
+        ys = np.array([(l["y"][0] + l["y"][1]) / 2 for l in pls])
+        d = np.diff(ys) / xh
+        ok = d < 6
+        if ok.sum() >= 4:
+            half = len(d) // 2
+            top, bot = np.median(d[:half][ok[:half]]) if ok[:half].any() else None, \
+                np.median(d[half:][ok[half:]]) if ok[half:].any() else None
+            if top and bot:
+                tight.append(1 - bot / top)
+        sections += list(d[(d >= 4.5) & (d < 12)])
+        margins += list(np.array([l["x"][0] for l in pls]) / xh)
+    sizes = np.array([l["xh"] for l in lines], float)
+    heads = sizes[sizes > 1.3 * np.median(sizes)]
+    out = {
+        "fatigue": round(float(np.clip(np.median(grow), 0, 0.3)), 3) if grow else 0.06,
+        "tighten": round(float(np.clip(np.median(tight), 0, 0.4)), 3) if tight else 0.1,
+        "margin_sd_xh": round(float(np.std(margins)), 2) if margins else None,
+        "heading_share": round(float(len(heads) / max(1, len(sizes))), 3),
+        "heading_scale": round(float(np.median(heads) / np.median(sizes)), 2) if len(heads) else 1.45,
+        "section_gap_xh": round(float(np.median(sections)), 2) if sections else None,
+    }
+    return out
