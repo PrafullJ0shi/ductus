@@ -37,7 +37,7 @@ Where each system fails (normalised CER per group of 20 lines, from the same run
 
 | System | Lines with capitals or digits | Plain lowercase lines |
 |---|---|---|
-| 2016 RNN, bias 1.5 | higher: "BTC" read as "Bit", "9:30" as "9 so", "450 rupees" lost | 0 to 2% on most lines |
+| 2016 RNN, bias 1.5 | higher: "BTC" read as "BIT", "9:30" as "9 so", "450 rupees" lost | 0 to 2% on most lines |
 | ductus neat | "BTC", "9:30", "12.5", "ID" written correctly | slips on some long words ("Wednesday", "library") |
 
 Notes:
