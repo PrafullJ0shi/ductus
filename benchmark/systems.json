@@ -8,6 +8,13 @@
   "speed": "389.51 s/line, OCR normCER 0.148"
  },
  {
+  "id": "ductus_v3",
+  "label": "ductus natural, round 3",
+  "settings": "CLI default (RNN style 1, cursive r/f and template M/R, read-back max CER 0.10), --look natural, seed 0",
+  "family": "ductus",
+  "license": "MIT code; RNN weights trained on IAM-OnDB, DiffBrush fallback weights trained on IAM (research use)"
+ },
+ {
   "id": "ductus_neat",
   "label": "ductus neat",
   "settings": "--look neat (preset upright), seed 0",

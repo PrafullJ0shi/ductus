@@ -1,7 +1,8 @@
 # Evaluation
 
 > **Status.** These measurements are from the earlier diffusion-only version. Current
-> readability and speed numbers are in [BENCHMARK.md](BENCHMARK.md) (round 2).
+> readability and speed numbers are in [BENCHMARK.md](BENCHMARK.md) (round 3). The blind test
+> in section 4 also has a later default-hand run.
 
 Everything here can be re-run with the scripts in [`scripts/`](../scripts). Machine: 8 CPU
 cores, no GPU.
@@ -69,7 +70,11 @@ skipped as likely split errors.
 | ductus with read-back | 10.1 to 12.6 |
 | ductus without read-back | 4.6 |
 
-A notes page of 150 to 250 words takes about 2 to 5 minutes on CPU.
+A cold-cache run of 243 words (`ductus write` with `--look natural --mode plain --seed 0
+--no-cache`) took 610 s of engine time (about 10 minutes 15 seconds wall on this machine)
+and filled 3 A4 pages at the default letter size. One full page is closer to 80 to 110
+words. The 7-line benchmark page in [BENCHMARK.md](BENCHMARK.md) (round 3) took 268 s
+(38 s per line) with a warm cache.
 
 ## 4. Blind test
 
@@ -92,14 +97,19 @@ cross-validation grouped by source line.
 
 | Run | Windows (real / generated) | HOG+LBP logistic | Small CNN |
 |---|---|---|---|
-| 3 IAM writers, flat-ink renderer | 235 / 235 | 93.6% (sd 3.1) | 90.6% (sd 6.0) |
+| 3 IAM writers, flat-ink renderer, style from one line | 235 / 235 | 93.6% (sd 3.1) | 90.6% (sd 6.0) |
+| 3 IAM writers, default hand (no style image), current engine and ink | 258 / 258 | 98.5% (sd 1.9) | 98.5% (sd 1.6) |
+| same default-hand run, binarized (letter shape only) | 258 / 258 | 94.6% (sd 1.4) | 91.1% (sd 5.0) |
 
-This is far from chance. **ductus output is not yet indistinguishable from real writing in
-this test.** Looking at the windows, the main cues are (1) stroke weight and ink texture
-(the flat renderer's even strokes; the new ink model and re-inked line width target this),
-(2) style mismatch: one reference line does not carry every habit of a writer, and (3) word
-spacing. The test will be re-run with the new ink model and with the writer's own pages once a
-profile is built.
+This is far from chance. **ductus output is not indistinguishable from real writing in these
+tests.** The first row copies a style from one reference line per writer
+([`scripts/proxy_blind_iam.py`](../scripts/proxy_blind_iam.py)). The later two rows are the
+default hand, with no style image ([`scripts/blind_default.py`](../scripts/blind_default.py),
+same 3 writers and 20 WikiText lines each, current RNN writer, cursive `r`/`f` and ink model).
+A high score on the default-hand run is expected, because it is not trying to match those
+writers. Even so, 98.5% (and 94.6% / 91.1% after binarizing, so the cue is not only ink
+texture) means the classifier has easy letter-shape and spacing cues. A style-matched re-run
+with the current engine, and a test on the writer's own pages, are still outstanding.
 
 **(b) Reviewers.** `blind_test.py` writes a shuffled 24-tile sheet and a separate answer key.
 Reviewers (people or fresh vision-model reviewers who have not seen the key) mark each tile

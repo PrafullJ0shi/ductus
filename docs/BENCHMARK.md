@@ -187,6 +187,56 @@ What changed, honestly:
   seconds per line, and most of the remaining time is model loading and the OCR read-back.
 - 4 of 50 words still failed the read-back after 6 rounds and were written anyway.
 
+## Round 3: cursive r and f, later solo-line rewrites
+
+Same 7 lines, same judge, same scripts. Changes since round 2: the default hand uses traced
+cursive `r` and `f` and template capitals (M, R, H, E, N); words that still fail in later
+RNN rounds are rewritten on their own line; read-back stays at max CER 0.10. Eight RNN
+rounds run before the diffusion fallback.
+
+| System | norm CER, 4 main lines | raw CER, 4 main lines | short | definition | maths | pangram | caps (norm) | digits (norm) | symbols (raw) | s per line |
+|---|---|---|---|---|---|---|---|---|---|---|
+| ductus natural, round 1 | 0.148 | 0.193 | 0.133 | 0.057 | 0.400 | 0.000 | 0.000 | 0.333 | 0.652 | 390 (load 20 to 32) |
+| ductus natural, round 2 | 0.113 | 0.153 | 0.000 | 0.000 | 0.450 | 0.000 | 0.227 | 0.185 | 0.696 | 23 (load 4 to 12) |
+| **ductus natural, round 3** | **0.093** | **0.150** | 0.000 | 0.000 | 0.350 | 0.023 | 0.136 | 0.111 | 0.609 | 38 (load 3 to 5) |
+| sjvasquez, bias 0.75 | 0.084 | 0.191 | 0.000 | 0.114 | 0.200 | 0.023 | 1.500 | 0.482 | 0.783 | 2.7 |
+| Grzego RNN, bias 1.5 | 0.124 | 0.201 | 0.000 | 0.171 | 0.300 | 0.023 | 0.591 | 0.111 | 0.826 | 5.2 |
+| text-to-handwriting, Caveat | 0.000 | 0.088 | 0.000 | 0.000 | 0.000 | 0.000 | 0.000 | 0.037 | 0.478 | 0.7 |
+
+What the judge read for ductus in this round:
+
+| line | ductus wrote, as read by OCR |
+|---|---|
+| short | `meet me at the library at 5 p.m.` (normalised CER 0.000) |
+| definition | `Variance - mean of squared deviations` (the drawn arrow is read as `-`) |
+| maths | `mean # # and X # 36` (stacked fraction and drawn `=` marks are not read; `x^2` came out messy) |
+| pangram | `The quick brown for jumps over the lazy dog .` ("fox" read as "for") |
+| caps | `BC NASA HTM. GPI ICCV.` ("BTC" as "BC", "HTML" as "HTM", "GPU" as "GPI") |
+| digits | `01234589 and.314 and 2026` (the 6 and 7 were unclear; "3.14" lost the leading 3) |
+| symbols | `# # C ) ARC. " ) . "` |
+
+What changed, honestly:
+
+- Main-line normalised CER improved from 0.113 to 0.093. Short and definition still read
+  perfectly. The pangram is no longer perfect (0.000 to 0.023): the judge read "fox" as
+  "for", most likely the cursive `f`.
+- Maths improved a little (0.450 to 0.350) but is still most of the main-line error, and
+  still the weakest of the four. The judge cannot read the stacked fraction and drawn `=`
+  marks, and `x^2` was miswritten.
+- ductus is closer to, but still behind, the sjvasquez RNN (0.093 against 0.084) and far
+  behind the fonts.
+- Capitals improved on round 2 but remain worse than round 1 (0.000 to 0.227 to 0.136).
+  Digits improved again (0.333 to 0.185 to 0.111). Symbols raw CER is 0.609, a little
+  better than round 2 (0.696) and still well behind the fonts.
+- Speed: 268 s for the 7-line page (38 s per line), slower than round 2 (158 s, 23 s per
+  line). Load was similar or slightly lower this time, so the extra time is mostly the
+  added rewrite rounds, not the machine. 5 of 50 words still failed the read-back after
+  10 rounds and were written anyway. Glyph twin rate is still 0.000.
+- A separate cold-cache run (`--no-cache`, look natural, mode plain, seed 0) of 243 words
+  took 610 s of engine time (615 s wall on this machine). The default letter size spread
+  that text over 3 A4 pages, so one full page at this size is closer to 80 to 110 words
+  than to 250. 8 of 243 words still failed the read-back.
+
 ## Raw data
 
 Per-system numbers: [`benchmark/metrics.csv`](../benchmark/metrics.csv). Systems and settings:

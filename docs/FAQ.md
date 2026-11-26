@@ -64,8 +64,9 @@ benchmark the glyph twin rate is 0.000 for ductus and 0.27 to 0.46 for fonts
 
 **Can it fool a person or a detector?**
 Not reliably. A classifier told real and generated lines apart far above chance in the
-earlier blind test ([EVALUATION.md](EVALUATION.md#4-blind-test)). That test used the older
-flat-ink version; it has not been re-run.
+blind tests in [EVALUATION.md](EVALUATION.md#4-blind-test), including a later default-hand
+run with the current engine and ink (about 98% accuracy, or 91 to 95% when only letter
+shape is left).
 
 ## Your own hand
 
