@@ -157,6 +157,36 @@ Where ductus does better in this round:
 | calligrapher.ai and other hosted web tools | No public API or static output. Driving the live site was out of scope for this round. |
 | Tesseract as a second OCR judge | Not installed on the box. Only one judge was used. |
 
+## Round 2: after the readability changes
+
+Same 7 lines, same judge (`trocr-large-handwritten`), same scripts
+(`benchmark/scripts/run_ductus_page.sh natural`, `split_page.py`, `ocr_score.py`). Changes since
+round 1: the Graves RNN (Grzego weights) writes the letters by default and diffusion is only the
+fallback for words the RNN cannot write or that still fail the read-back; every word must pass
+the line and the word read-back; a letter-shape check re-writes looped letters.
+
+| System | norm CER, 4 main lines | raw CER, 4 main lines | short | definition | maths | pangram | caps (norm) | digits (norm) | symbols (raw) | s per line |
+|---|---|---|---|---|---|---|---|---|---|---|
+| ductus natural, round 1 | 0.148 | 0.193 | 0.133 | 0.057 | 0.400 | 0.000 | 0.000 | 0.333 | 0.652 | 390 (load 20 to 32) |
+| **ductus natural, round 2** | **0.113** | **0.153** | 0.000 | 0.000 | 0.450 | 0.000 | 0.227 | 0.185 | 0.696 | 23 (load 4 to 12) |
+| sjvasquez, bias 0.75 | 0.084 | 0.191 | 0.000 | 0.114 | 0.200 | 0.023 | 1.500 | 0.482 | 0.783 | 2.7 |
+| Grzego RNN, bias 1.5 | 0.124 | 0.201 | 0.000 | 0.171 | 0.300 | 0.023 | 0.591 | 0.111 | 0.826 | 5.2 |
+| text-to-handwriting, Caveat | 0.000 | 0.088 | 0.000 | 0.000 | 0.000 | 0.000 | 0.000 | 0.037 | 0.478 | 0.7 |
+
+What changed, honestly:
+
+- Three of the four main lines now read perfectly (short, definition, pangram). All of the
+  remaining main-line error is the maths line: the judge cannot read the drawn stacked fraction
+  and `=` marks, and `x^2` came out as "X ?". On plain prose ductus is now level with the fonts.
+- ductus is still behind the sjvasquez RNN on the main-line average (0.113 against 0.084) and
+  far behind the fonts.
+- Capitals got worse (0.000 to 0.227: "BTC" read as "Bf", "HTML" as "HTHL"); digits got better
+  (0.333 to 0.185). The RNN writes capitals less clearly than diffusion did.
+- Speed: 158 s for the page (23 s per line), against about 390 s per line in round 1. The
+  machine was less loaded this time, so part of the gain is not ours; the RNN itself takes a few
+  seconds per line, and most of the remaining time is model loading and the OCR read-back.
+- 4 of 50 words still failed the read-back after 6 rounds and were written anyway.
+
 ## Raw data
 
 Per-system numbers: [`benchmark/metrics.csv`](../benchmark/metrics.csv). Systems and settings:

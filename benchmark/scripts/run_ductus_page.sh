@@ -7,6 +7,6 @@ for look in "$@"; do
   mkdir -p out/ductus_$look
   s=$(date +%s.%N)
   $D write texts/ductus_page.txt -o out/ductus_$look/page --look $look --seed 0 --no-pdf > out/ductus_$look/page.json 2> out/ductus_$look/page.err
-  echo "{\"look\":\"$look\",\"rc\":$?,\"wall_s\":$(echo "$(date +%s.%N) - $s" | bc),\"load\":\"$(cut -d' ' -f1-3 /proc/loadavg)\"}" > out/ductus_$look/wall.json
+  echo "{\"look\":\"$look\",\"rc\":$?,\"wall_s\":$(python3 -c "import time;print(round(time.time()-$s,1))"),\"load\":\"$(cut -d' ' -f1-3 /proc/loadavg)\"}" > out/ductus_$look/wall.json
 done
 echo DONE
