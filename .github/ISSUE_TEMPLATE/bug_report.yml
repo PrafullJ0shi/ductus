@@ -1,0 +1,27 @@
+name: Bug report
+description: Something produced the wrong output or crashed
+labels: [bug]
+body:
+  - type: textarea
+    id: command
+    attributes:
+      label: Command
+      description: The exact ductus command you ran
+      render: shell
+    validations: {required: true}
+  - type: textarea
+    id: input
+    attributes:
+      label: Input text
+      description: The text or file contents (trim to the smallest example that fails)
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened
+      description: Attach the output image if possible
+    validations: {required: true}
+  - type: input
+    id: env
+    attributes:
+      label: Environment
+      placeholder: "OS, Python version, CPU or GPU, ductus version"

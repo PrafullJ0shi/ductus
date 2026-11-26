@@ -1,0 +1,9 @@
+{
+  "_text": "Become a better writer with a quick daily habit of notes",
+  "_source": "Rendered from strokes sampled with the Graves RNN of Grzego/handwriting-generation (MIT), priming styles 1, 3, 4, 5 and 7.",
+  "upright": {"file": "upright.png", "note": "upright, open, evenly spaced"},
+  "slant":   {"file": "slant.png",   "note": "right-leaning, joined, compact"},
+  "quick":   {"file": "quick.png",   "note": "fast everyday hand (default)"},
+  "round":   {"file": "round.png",   "note": "wide and round, airy spacing"},
+  "loose":   {"file": "loose.png",   "note": "loose loops, uneven size"}
+}

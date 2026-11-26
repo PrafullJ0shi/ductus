@@ -1,0 +1,150 @@
+"""Word synthesis: pack words into full-length carrier lines, generate them with the
+diffusion engine, split them back into words, OCR-check, and retry the failures.
+
+Why carriers: the line model is trained on 35-61 character lines and is weakest on
+short inputs. Writing every word inside a normal-length line keeps it in its comfort
+zone, and every occurrence of a word is a fresh sample, so no two copies match.
+"""
+from __future__ import annotations
+
+import random
+from dataclasses import dataclass, field
+
+import numpy as np
+
+from .segment import clean_line, split_words, baseline_and_xheight, tight_bbox
+from .verify import cer, normalise
+
+FILLER = ("and the of with over into from about under while still both more when then "
+          "light river window paper simple garden morning letter quiet number travel").split()
+CARRIER_LEN = 46
+
+
+def align_words(targets: list[str], hyp: list[str]) -> list[str]:
+    """Align OCR words to target words (edit-distance DP over word sequences).
+    Returns, for each target word, the OCR text matched to it ("" if deleted)."""
+    n, m = len(targets), len(hyp)
+    def sub(a, b):
+        return min(1.0, cer(normalise(a) or a, normalise(b) or b))
+    D = np.zeros((n + 1, m + 1))
+    D[:, 0] = np.arange(n + 1)
+    D[0, :] = np.arange(m + 1)
+    for i in range(1, n + 1):
+        for j in range(1, m + 1):
+            D[i, j] = min(D[i - 1, j] + 1, D[i, j - 1] + 1, D[i - 1, j - 1] + sub(targets[i - 1], hyp[j - 1]))
+    out = [""] * n
+    i, j = n, m
+    while i > 0 and j > 0:
+        if np.isclose(D[i, j], D[i - 1, j - 1] + sub(targets[i - 1], hyp[j - 1])):
+            out[i - 1] = hyp[j - 1]; i -= 1; j -= 1
+        elif np.isclose(D[i, j], D[i - 1, j] + 1):
+            i -= 1
+        else:
+            j -= 1
+    return out
+
+
+@dataclass
+class WordImage:
+    text: str
+    alpha: np.ndarray        # ink coverage 0..1, cropped, at model scale (64 px lines)
+    baseline: float          # row of the baseline inside alpha
+    xheight: float
+    score: float = 1.0       # 1 - CER of the OCR read-back (1.0 when unchecked)
+    read: str = ""
+
+
+@dataclass
+class Synthesizer:
+    engine: object
+    style_img: np.ndarray
+    reader: object | None = None
+    max_cer: float = 0.25          # neat: 0.15-0.25; personal style: calibrated, looser
+    loose: bool = False            # True: compare case/punctuation-insensitively
+    rounds: int = 3
+    batch: int = 8
+    seed: int = 0
+    log: callable = print
+    stats: dict = field(default_factory=dict)
+
+    def _carriers(self, words: list[tuple[int, str]], rng: random.Random):
+        """Greedy pack (id, text) pairs into carrier strings of exactly CARRIER_LEN chars."""
+        out, cur, n = [], [], 0
+        for wid, w in words:
+            extra = len(w) + (1 if cur else 0)
+            if cur and n + extra > CARRIER_LEN:
+                out.append(cur)
+                cur, n = [], 0
+                extra = len(w)
+            cur.append((wid, w))
+            n += extra
+        if cur:
+            out.append(cur)
+        carriers = []
+        for group in out:
+            text = " ".join(w for _, w in group)
+            fill = []
+            while len(text) + 1 + len(" ".join(fill)) < CARRIER_LEN:
+                fill.append(rng.choice(FILLER))
+            full = (text + (" " + " ".join(fill) if fill else ""))
+            if len(full) > CARRIER_LEN and fill:
+                full = full[:CARRIER_LEN].rstrip()
+                if len(full.split()) <= len(group):     # trimmed every filler away
+                    full = text
+            carriers.append((group, full))
+        return carriers
+
+    def _accept(self, target: str, read: str) -> float:
+        """Acceptance error. TrOCR often drops case and punctuation on its own, so both
+        modes compare normalised text; the threshold (max_cer) is what differs."""
+        t, r = normalise(target), normalise(read)
+        if not t:                      # pure punctuation such as "1)" or "-"
+            return 0.0 if read.strip() else 1.0
+        return cer(t, r)
+
+    def run(self, texts: list[str]) -> list[WordImage]:
+        """Return one WordImage per input word (same order)."""
+        rng = random.Random(self.seed)
+        best: dict[int, WordImage] = {}
+        pending = list(enumerate(texts))
+        seed = self.seed
+        gen_lines = 0
+        for rnd in range(self.rounds):
+            if not pending:
+                break
+            carriers = self._carriers(pending, rng)
+            self.log(f"round {rnd + 1}: {len(pending)} words in {len(carriers)} lines")
+            for i in range(0, len(carriers), self.batch):
+                chunk = carriers[i:i + self.batch]
+                seed += 1
+                imgs = self.engine.generate([c[1] for c in chunk], self.style_img, seed=seed)
+                gen_lines += len(chunk)
+                for (group, full), img in zip(chunk, imgs):
+                    a = clean_line(img)
+                    spans = split_words(a, len(full.split()))
+                    if spans is None:
+                        continue
+                    bl, xh = baseline_and_xheight(a)
+                    real = spans[:len(group)]
+                    read_words = None
+                    if self.reader is not None:
+                        x_end = min(img.shape[1], real[-1][1] + 6)
+                        line_read = self.reader.read([img[:, :x_end]])[0]
+                        read_words = align_words([w for _, w in group], line_read.split())
+                    for k, ((wid, w), (x0, x1)) in enumerate(zip(group, real)):
+                        sub = a[:, max(0, x0 - 1):x1 + 1]
+                        if tight_bbox(sub) is None:
+                            continue
+                        r = read_words[k] if read_words is not None else None
+                        err = self._accept(w, r) if r is not None else 0.0
+                        cand = WordImage(w, sub, bl, xh, 1.0 - err, r or "")
+                        if wid not in best or cand.score > best[wid].score:
+                            best[wid] = cand
+            pending = [(wid, w) for wid, w in pending
+                       if wid not in best or (1.0 - best[wid].score) > self.max_cer]
+        self.stats = {"lines_generated": gen_lines, "words": len(texts),
+                      "still_failing": len(pending), "rounds_used": rnd + 1}
+        missing = [wid for wid, _ in enumerate(texts) if wid not in best]
+        if missing:
+            raise RuntimeError(f"could not synthesise {len(missing)} words, e.g. {texts[missing[0]]!r}")
+        return [best[i] for i in range(len(texts))]

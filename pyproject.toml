@@ -1,0 +1,33 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "ductus"
+version = "0.1.0"
+description = "Human-looking handwriting on A4 from text: one-shot style imitation, OCR-verified, with notes and maths layouts."
+readme = "README.md"
+requires-python = ">=3.10"
+license = {text = "MIT"}
+authors = [{name = "Prafull Joshi"}]
+dependencies = [
+  "numpy>=1.24", "pillow>=10", "opencv-python-headless>=4.8", "scikit-image>=0.22",
+]
+
+[project.optional-dependencies]
+model = ["torch>=2.2", "torchvision", "diffusers>=0.27", "einops", "omegaconf", "gdown", "huggingface_hub", "transformers>=4.40", "sentencepiece"]
+pdf = ["reportlab>=4"]
+dev = ["pytest>=8"]
+
+[project.scripts]
+ductus = "ductus.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-data]
+"ductus" = ["presets/*.png", "presets/*.json"]
+"ductus.engines.diffbrush" = ["glyphs.npz", "LICENSE-DiffBrush"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

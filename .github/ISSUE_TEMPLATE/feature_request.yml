@@ -1,0 +1,14 @@
+name: Feature request
+description: A new mark, layout habit, output format or workflow
+labels: [enhancement]
+body:
+  - type: textarea
+    id: need
+    attributes:
+      label: What do you want to write or produce?
+      description: Describe the page or task, ideally with a photo of the real thing
+    validations: {required: true}
+  - type: textarea
+    id: idea
+    attributes:
+      label: Proposed approach (optional)

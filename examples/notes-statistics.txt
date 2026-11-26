@@ -1,0 +1,13 @@
+# Measures of Dispersion
+
+Range :: largest value minus smallest value
+Variance :: average of squared deviations from the mean
+Standard deviation :: square root of variance, same unit as data
+Note: a large variance means the data is spread out
+
+---
+
+1) Mean deviation [v]
+2) Quartile deviation [v]
+3) ~~Mode deviation~~ not used
+4) Coefficient of variation -> compare two sets

@@ -1,0 +1,21 @@
+cff-version: 1.2.0
+message: "If you use ductus in your work, please cite it as below, and cite the prior work it builds on (see README, Credits)."
+title: "ductus: human-looking handwriting on A4 with one-shot style imitation and OCR verification"
+authors:
+  - family-names: Joshi
+    given-names: Prafull
+version: 0.1.0
+date-released: 2026-11-26
+license: MIT
+repository-code: "https://github.com/PrafullJ0shi/ductus"
+keywords: [handwriting synthesis, handwritten text generation, diffusion, OCR, document layout]
+references:
+  - type: conference-paper
+    title: "Beyond Isolated Words: Diffusion Brush for Handwritten Text-Line Generation"
+    authors: [{family-names: Dai, given-names: Gang}]
+    collection-title: "ICCV 2025"
+    year: 2025
+  - type: article
+    title: "Generating Sequences With Recurrent Neural Networks"
+    authors: [{family-names: Graves, given-names: Alex}]
+    year: 2013
