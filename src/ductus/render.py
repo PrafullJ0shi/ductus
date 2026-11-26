@@ -30,12 +30,12 @@ def sharpen_ink(a: np.ndarray, mess: float) -> np.ndarray:
 
 
 def word_layer(alpha: np.ndarray, scale: float, angle: float, mess: float, pen: float, baseline: float = 0.0,
-               stroke_px: float | None = None, nib: np.ndarray | None = None):
+               stroke_px: float | None = None, nib: np.ndarray | None = None, sx: float = 1.0):
     """Scale + rotate one word crop. Returns (layer, anchor) where anchor maps the
     model-space origin (0,0) of the crop into layer coordinates."""
     s = scale * SS
     h, w = alpha.shape
-    big = cv2.resize(alpha.astype(np.float32), (max(1, int(round(w * s))), max(1, int(round(h * s)))),
+    big = cv2.resize(alpha.astype(np.float32), (max(1, int(round(w * s * sx))), max(1, int(round(h * s)))),
                      interpolation=cv2.INTER_CUBIC)
     big = np.clip(big, 0, 1)
     if stroke_px:
@@ -115,7 +115,7 @@ def ink_coverage(page: Page, words, mess: float, pen: float, pen_px: float, rng,
         wi = words[pl.idx]
         lay, (ax, ay) = word_layer(wi.alpha, pl.scale, pl.angle, mess, pen, wi.baseline,
                                    stroke_px=pen_px * pen * float(np.clip(pl.ink, 0.9, 1.1)) if uniform else None,
-                                   nib=nib)
+                                   nib=nib, sx=getattr(pl, "sx", 1.0))
         # crop origin (top-left) sits at baseline - wi.baseline*scale
         ox = int(round(pl.x * SS - ax))
         oy = int(round((pl.base - wi.baseline * pl.scale) * SS - ay))
@@ -143,13 +143,38 @@ def ink_coverage(page: Page, words, mess: float, pen: float, pen_px: float, rng,
     return ink
 
 
+def smudge(c: np.ndarray, rng, n_mean: float, px_per_mm: float) -> np.ndarray:
+    """Hand smudges: the side of the hand drags fresh ink a few mm, leaving a faint smear."""
+    n = rng.poisson(n_mean) if n_mean > 0 else 0
+    ys, xs = np.where(c > 0.6)
+    for _ in range(n):
+        if len(ys) == 0:
+            break
+        i = rng.integers(len(ys))
+        cy, cx = ys[i], xs[i]
+        hh, ww = int(3 * px_per_mm), int(6 * px_per_mm)
+        y0, y1 = max(0, cy - hh), min(c.shape[0], cy + hh)
+        x0, x1 = max(0, cx - ww), min(c.shape[1], cx + ww)
+        patch = c[y0:y1, x0:x1]
+        L = int(rng.uniform(1.5, 4) * px_per_mm)
+        k = np.zeros((3, L), np.float32); k[1, :] = 1.0 / L
+        ang = rng.uniform(-25, 10)
+        M = cv2.getRotationMatrix2D((L / 2, 1), ang, 1.0)
+        k = cv2.warpAffine(k, M, (L, 3))
+        sm = cv2.filter2D(patch, -1, k / max(1e-6, k.sum()))
+        fade = np.outer(np.hanning(patch.shape[0]), np.hanning(patch.shape[1])).astype(np.float32)
+        c[y0:y1, x0:x1] = np.maximum(patch, sm * rng.uniform(0.12, 0.25) * fade)
+    return c
+
+
 def compose_physical(shape: np.ndarray, count: np.ndarray, pen, pressure: float, rng,
-                     paper: np.ndarray | None = None) -> np.ndarray:
+                     paper: np.ndarray | None = None, smudges: float = 0.0) -> np.ndarray:
     """Stroke shape -> ink concentration (pens.concentration) -> RGB at 300 dpi."""
     from .pens import concentration, to_rgb
     from .layout import MM
     c = concentration(shape, count, pen, rng, MM * SS)
     c = c * pressure_field(shape.shape, rng, pressure)
+    c = smudge(c, rng, smudges, MM * SS)
     c = cv2.resize(c, (shape.shape[1] // SS, shape.shape[0] // SS), interpolation=cv2.INTER_AREA)
     if paper is None:
         paper = np.full(c.shape + (3,), 255, np.float32)

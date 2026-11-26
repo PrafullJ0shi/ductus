@@ -167,7 +167,7 @@ class Writer:
                 img = compose(ink, look.ink, look.pressure, nrng, paper)
             else:
                 shape, count = ink_coverage(pg, words, look.mess, look.pen, sw, nrng, nib=nib, with_count=True)
-                img = compose_physical(shape, count, pen, look.pressure, nrng, paper)
+                img = compose_physical(shape, count, pen, look.pressure, nrng, paper, smudges=look.smudges)
             if o.photo:
                 img = phone_photo(img, seed=o.seed + pi)
             out.append(img)
