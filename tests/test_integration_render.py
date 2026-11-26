@@ -34,3 +34,23 @@ def test_page_renders_with_realism_ink_and_humanize():
     assert img.min() < 150 and img.max() > 240
     photo = phone_photo(img, seed=2)
     assert photo.ndim == 3
+
+
+def test_photo_surfaces():
+    from ductus.page import Options, _paper, _surface
+    from ductus.realism.phone_capture import CaptureParams, capture
+    assert _surface(True) == "a4" and _surface("notebook") == "notebook"
+    assert _paper(Options(photo="notebook")) == "grid" and _paper(Options(photo="a4")) == "white"
+    assert _paper(Options(photo="notebook", paper="ruled")) == "ruled"
+    page = np.full((700, 495, 3), 250, np.uint8)
+    page[100:110, 50:400] = 40
+    for s in ("a4", "notebook"):
+        P = CaptureParams.surface(s)
+        assert (P.binding == "loose") == (s == "a4") and P.spiral == (s == "notebook")
+        out, _ = capture(page, 1, replace_out(P))
+        assert out.shape[:2] == (480, 360)
+
+
+def replace_out(P):
+    from dataclasses import replace
+    return replace(P, out_size=(480, 360))

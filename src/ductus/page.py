@@ -64,8 +64,8 @@ class Options:
     style: str | None = None        # None: "upright" for the neat look, "quick" otherwise
     look: str = "natural"            # neat | natural | messy | profile
     mode: str = "plain"              # plain | notes | maths
-    paper: str = "white"             # white | ruled | grid
-    photo: bool = False
+    paper: str | None = None         # white | ruled | grid (default white; grid for a notebook photo)
+    photo: str | bool | None = None  # None | "a4" (loose sheet on a desk) | "notebook" (spiral grid pad); True = a4
     ink: str | None = None
     seed: int = 0
     steps: int = 25
@@ -175,7 +175,7 @@ class Writer:
         out = []
         nrng = np.random.default_rng(o.seed)
         for pi, pg in enumerate(pages):
-            paper = make_paper(o.paper, seed=o.seed + pi)
+            paper = make_paper(_paper(o), seed=o.seed + pi)
             if o.humanize and o.look != "neat":
                 from .humanize_bridge import humanize_page
                 humanize_page(pg, words, L, o.humanize, o.seed + pi)
@@ -193,7 +193,7 @@ class Writer:
                 shape, count = ink_coverage(pg, words, look.mess, look.pen, sw, nrng, nib=nib, with_count=True)
                 img = compose_physical(shape, count, pen, look.pressure, nrng, paper, smudges=look.smudges)
             if o.photo:
-                img = phone_photo(img, seed=o.seed + pi)
+                img = phone_photo(img, seed=o.seed + pi, surface=_surface(o.photo))
             out.append(img)
         stats.update(words=len(texts), seconds=round(time.time() - t0, 1), pages=len(pages),
                      ocr_mean_score=round(float(np.mean([w.score for w in words])), 3) if words else None,
@@ -329,3 +329,13 @@ def _cache_put(key, val) -> None:
     d = _cache_dir()
     d.mkdir(parents=True, exist_ok=True)
     (d / f"{key}.pkl").write_bytes(pickle.dumps(val))
+
+
+def _surface(photo) -> str:
+    return "a4" if photo is True or photo in (None, "", "a4") else str(photo)
+
+
+def _paper(o: "Options") -> str:
+    if o.paper:
+        return o.paper
+    return "grid" if o.photo and _surface(o.photo) == "notebook" else "white"

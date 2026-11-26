@@ -58,7 +58,7 @@ class CaptureParams:
     focal: float = 0.78                  # focal length / frame width (26 mm-equiv main camera)
     curl: float = 0.018                  # page lift near the binding, share of page width
     curl_width: float = 0.14             # how far from the binding the curl reaches
-    binding: str = "left"                # left | top | none
+    binding: str = "left"                # left | top | none | loose (single sheet: corner/edge lift)
     spiral: bool = True
     page_edge: bool = True               # visible page edge, thickness shadow, pages below
     desk: bool = True
@@ -84,6 +84,18 @@ class CaptureParams:
     jpeg_quality: int = 88
     show_through: float = 0.03
     extra: dict = field(default_factory=dict)
+
+    @classmethod
+    def surface(cls, name: str = "a4", path: str | None = None) -> "CaptureParams":
+        """Capture presets on top of the calibration: ``notebook`` (spiral-bound pad, pages
+        below, curl at the binding) or ``a4`` (one loose sheet on a desk, corner lift)."""
+        P = cls.from_calibration(path)
+        if name == "notebook":
+            return replace(P, binding="left", spiral=True, page_edge=True, page_fill=min(P.page_fill, 0.86))
+        if name == "a4":
+            return replace(P, binding="loose", spiral=False, page_edge=False, curl=0.02, curl_width=0.25,
+                           page_fill=min(P.page_fill, 0.80), pitch_deg=min(P.pitch_deg, 7.0), show_through=0.0)
+        raise ValueError(f"unknown surface {name!r} (use a4 or notebook)")
 
     @classmethod
     def from_calibration(cls, path: str | None = None) -> "CaptureParams":
@@ -233,7 +245,13 @@ def capture(page: np.ndarray, seed: int = 0, params: CaptureParams | None = None
     H, W = h + 2 * pad, w + 2 * pad
     canvas = _desk(H, W, rng, P.desk_rgb) if P.desk else np.full((H, W, 3), 0.9, np.float32)
     mask = np.zeros((H, W), np.float32)
-    if P.page_edge:
+    if P.binding == "loose":
+        # a single sheet lying on the desk: only a thin contact shadow along its edges
+        sh = np.zeros((H, W), np.float32)
+        cv2.rectangle(sh, (pad, pad), (pad + w, pad + h), 1.0, -1)
+        sh = cv2.GaussianBlur(sh, (0, 0), w / 400)
+        canvas *= (1 - 0.22 * sh)[..., None]
+    elif P.page_edge:
         # pages underneath peek out on two sides, and the sheet casts a thin shadow
         dx, dy = rng.uniform(1, 3, 2) * w / 600
         under = np.zeros((H, W), np.float32)
@@ -272,6 +290,34 @@ def capture(page: np.ndarray, seed: int = 0, params: CaptureParams | None = None
         depth = -amp * lift
         canvas *= np.where(mask[..., None] > 0.5, np.clip(shade, 0.6, 1.1)[..., None], 1.0)
 
+    if P.binding == "loose" and P.curl > 0:
+        # loose sheet: one or two corners lift off the desk (paper memory), plus a gentle bow
+        cxp, cyp = pad + w / 2, pad + h / 2
+        nx, ny = (xx - cxp) / (w / 2), (yy - cyp) / (h / 2)          # -1..1 over the sheet
+        amp_tot = np.zeros((H, W), np.float32)
+        corners = [(-1, -1), (1, -1), (1, 1), (-1, 1)]
+        for k in rng.choice(4, size=int(rng.integers(1, 3)), replace=False):
+            sx_, sy_ = corners[k]
+            d = np.sqrt(((nx - sx_) / 2) ** 2 + ((ny - sy_) / 2) ** 2)    # 0 at the corner
+            reach = P.curl_width * rng.uniform(1.0, 2.0)
+            amp_tot += (np.clip(1 - d / reach, 0, 1) ** 2) * P.curl * w * rng.uniform(1.0, 2.2)
+        bow = P.curl * w * 0.25 * rng.uniform(0, 1) * (1 - np.clip(nx, -1, 1) ** 2)
+        lift = amp_tot + bow
+        # a lifted part seen from above shifts away from the sheet centre (perspective of height)
+        k_par = 0.10
+        mx, my = xx - k_par * lift * np.sign(nx) * np.abs(nx), yy - k_par * lift * np.sign(ny) * np.abs(ny)
+        # the lifted corner casts a soft shadow on the desk next to it
+        ins = ((np.abs(nx) <= 1) & (np.abs(ny) <= 1)).astype(np.float32)
+        cast = cv2.GaussianBlur(ins * amp_tot / max(1e-6, float(amp_tot.max() or 1)), (0, 0), w / 60)
+        canvas *= np.where(ins[..., None] > 0.5, 1.0, (1 - 0.35 * cast)[..., None])
+        canvas = cv2.remap(canvas, mx.astype(np.float32), my.astype(np.float32), cv2.INTER_LINEAR,
+                           borderMode=cv2.BORDER_REFLECT)
+        mask = cv2.remap(mask, mx.astype(np.float32), my.astype(np.float32), cv2.INTER_LINEAR)
+        gy, gx = np.gradient(lift / w)
+        shade = 1 + 4.0 * (gx * rng.uniform(-1, 1) + gy * rng.uniform(-1, 1)) - 0.6 * lift / w
+        depth = -lift
+        canvas *= np.where(mask[..., None] > 0.5, np.clip(shade, 0.75, 1.08)[..., None], 1.0)
+
     # 4. perspective camera
     pitch = rng.normal(0, P.pitch_deg); yaw = rng.normal(0, P.yaw_deg); roll = rng.normal(0, P.roll_deg)
     if rng.random() < 0.5:
@@ -297,7 +343,7 @@ def capture(page: np.ndarray, seed: int = 0, params: CaptureParams | None = None
     q = np.stack([ox, oy, np.ones_like(ox)], -1) @ Hinv.T
     sx, sy = (q[..., 0] / q[..., 2]).astype(np.float32), (q[..., 1] / q[..., 2]).astype(np.float32)
     _, Zmap = project(sx, sy)
-    if P.curl > 0 and P.binding in ("left", "top"):
+    if P.curl > 0 and P.binding in ("left", "top", "loose"):
         Zmap = Zmap + cv2.remap(depth, sx, sy, cv2.INTER_LINEAR)
     page_pix = pmask > 0.5
     z_focus = float(np.median(Zmap[page_pix])) if page_pix.any() else Z0

@@ -36,9 +36,10 @@ def make_paper(kind: str = "white", size=A4, seed: int = 0) -> np.ndarray:
     return np.clip(p, 0, 255)
 
 
-def phone_photo(img: np.ndarray, seed: int = 0, **kw) -> np.ndarray:
+def phone_photo(img: np.ndarray, seed: int = 0, surface: str = "a4", **kw) -> np.ndarray:
     """Phone capture of the page with parameters calibrated on real photos
-    (realism.phone_capture; calibration.json). The older model is kept in photo.py."""
-    from .realism.phone_capture import capture
-    out, _info = capture(img, seed, **kw)
+    (realism.phone_capture; calibration.json). ``surface``: "a4" = one loose white sheet on a
+    desk (corner lift, contact shadow); "notebook" = spiral-bound pad with pages below. The older model is kept in photo.py."""
+    from .realism.phone_capture import CaptureParams, capture
+    out, _info = capture(img, seed, CaptureParams.surface(surface), **kw)
     return out

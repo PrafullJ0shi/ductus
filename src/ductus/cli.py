@@ -1,7 +1,7 @@
 """ductus command line.
 
   ductus write  notes.txt -o out/page [--style quick|<profile dir>|<line.png>] [--look neat|natural|messy]
-                [--mode plain|notes|maths] [--paper white|ruled|grid] [--photo] [--svg] [--animate]
+                [--mode plain|notes|maths] [--paper white|ruled|grid] [--photo [a4|notebook]] [--svg] [--animate]
   ductus style  photo1.jpg photo2.jpg ... -o styles/my-hand      build a personal style profile
   ductus presets                                                list built-in styles
 """
@@ -75,8 +75,10 @@ def main(argv=None):
     w.add_argument("--style", help="preset name, a line image, or a profile folder (default: upright for --look neat, quick otherwise)")
     w.add_argument("--look", default="natural", choices=["neat", "natural", "messy", "profile"])
     w.add_argument("--mode", default="plain", choices=["plain", "notes", "maths"])
-    w.add_argument("--paper", default="white", choices=["white", "ruled", "grid"])
-    w.add_argument("--photo", action="store_true", help="make it look like a phone photo")
+    w.add_argument("--paper", default=None, choices=["white", "ruled", "grid"],
+                   help="default white; grid with --photo notebook")
+    w.add_argument("--photo", nargs="?", const="a4", default=None, choices=["a4", "notebook"],
+                   help="phone photo of the page: a4 (default; loose sheet on a desk) or notebook (spiral grid pad)")
     w.add_argument("--ink", help="override the pen's ink colour, e.g. '#1c2a6e'")
     w.add_argument("--pen", choices=["blue-ballpoint", "black-ballpoint", "blue-gel", "black-gel", "fountain", "pencil"],
                    help="pen preset (default blue-ballpoint; a profile uses its measured ink and width)")
