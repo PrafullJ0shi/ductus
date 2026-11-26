@@ -53,7 +53,7 @@ PENS = {
                     skips=0.0, rough=0.2, bleed=0.9),
     "black-gel": Pen("black-gel", "#141418", 0.48, "gel", density=1.3, speed=0.08, blob=0.15,
                      skips=0.0, rough=0.2, bleed=0.9),
-    "fountain": Pen("fountain", "#23306e", 0.45, "fountain", density=1.1, speed=0.2, blob=0.9,
+    "fountain": Pen("fountain", "#2a3a7e", 0.42, "fountain", density=0.8, speed=0.2, blob=0.5,
                     skips=0.0, rough=0.25, bleed=1.2, nib_ratio=0.38, nib_angle=40.0),
     "pencil": Pen("pencil", "#55565c", 0.42, "pencil", density=0.75, speed=0.3, blob=0.1,
                   skips=0.0, rough=0.6, bleed=0.2, grain=0.75),
@@ -154,8 +154,8 @@ def concentration(shape: np.ndarray, count: np.ndarray, pen: Pen, rng, px_per_mm
     if pen.kind == "fountain":
         # wet ink dries darker at the edges of the line and pools at the ends
         inner = cv2.erode(M.astype(np.uint8), np.ones((3, 3), np.uint8), iterations=2)
-        rim = (M.astype(np.float32) - inner) * 0.35
-        c = c + rim + 0.25 * slow
+        rim = (M.astype(np.float32) - inner) * 0.25
+        c = c + rim + 0.1 * slow
     if pen.kind == "pencil" and pen.grain > 0:
         tooth = _noise(S.shape, rng, 0.05 * px_per_mm, octaves=2)
         keep = np.clip(0.55 + 0.35 * tooth, 0, 1) ** (1 + pen.grain)

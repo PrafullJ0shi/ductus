@@ -87,7 +87,13 @@ class WordBox(Box):
         L.size_walk = 0.8 * L.size_walk + L.rng.normal(0, 0.012 + 0.03 * L.look.mess)
         self.jit = norm * (1 + L.size_walk + L.rng.normal(0, 0.015 + 0.03 * L.look.mess)) * L.fatigue_k()
         self.sx = 1.0
-        self.width = w.alpha.shape[1] * L.s * k * self.jit
+        # some generator lines come out condensed or stretched: pull letter width partway
+        # back to the page median so no word looks bolder or lighter than its neighbours
+        self.wfix = 1.0
+        if len(w.text) >= 3 and L.median_wpc:
+            wpc = w.alpha.shape[1] / (len(w.text) * max(w.xheight, 4.0))
+            self.wfix = float(np.clip((L.median_wpc / max(wpc, 1e-3)) ** 0.6, 0.85, 1.25))
+        self.width = w.alpha.shape[1] * L.s * k * self.jit * self.wfix
         self.deco = L.word_deco[idx]
         self.text = w.text
         if "oops" in self.deco:
@@ -100,11 +106,11 @@ class WordBox(Box):
         dy = L.rng.normal(0, L.xh * (0.03 + 0.07 * L.look.mess))
         ang = L.line_angle + L.rng.normal(0, 0.4 + 1.2 * L.look.mess)
         ink = (1 + L.rng.normal(0, L.look.pressure * 0.5)) * L.session_ink
-        L.page.words.append(Placed(self.idx, x, base + dy, s, ang, ink, self.sx))
+        L.page.words.append(Placed(self.idx, x, base + dy, s, ang, ink, self.sx * self.wfix))
         if L.rng.random() < L.look.retrace:
             # part of the word gone over again: a second, slightly offset pass
             L.page.words.append(Placed(self.idx, x + L.rng.normal(0, 0.6), base + dy + L.rng.normal(0, 0.6), s,
-                                       ang + L.rng.normal(0, 0.3), ink * 0.8, self.sx))
+                                       ang + L.rng.normal(0, 0.3), ink * 0.8, self.sx * self.wfix))
         if L.rng.random() < L.look.hesitation:
             # pen rested before starting the word
             cx, cy = x - L.xh * 0.15, base + dy - L.xh * L.rng.uniform(0.3, 0.8)
@@ -198,6 +204,8 @@ class Layouter:
         self.xh = look.xh_mm * MM
         model_xh = float(np.median([w.xheight for w in words])) if words else 20.0
         self.model_xh = max(model_xh, 4.0)
+        wpcs = [w.alpha.shape[1] / (len(w.text) * max(w.xheight, 4.0)) for w in words if len(w.text) >= 3]
+        self.median_wpc = float(np.median(wpcs)) if wpcs else None
         self.s = self.xh / self.model_xh
         self.size_walk = 0.0
         self.session_ink = 1.0

@@ -161,7 +161,8 @@ class Synthesizer:
                         if not (lo <= ratio <= hi) and len(w) >= 3:
                             err = max(err, 1.0)          # the split put this word in the wrong span
                         r = read_words[k] if read_words is not None else ""
-                        cand = WordImage(w, sub, bl, xh, 1.0 - err, r)
+                        # size by mean letter width: the row-profile x-height is fooled by ascenders
+                        cand = WordImage(w, sub, bl, float(np.clip(cw * 1.15, 0.5 * xh, 1.5 * xh)), 1.0 - err, r)
                         if wid not in best or cand.score > best[wid].score:
                             best[wid] = cand
             pending = [(wid, w) for wid, w in pending
