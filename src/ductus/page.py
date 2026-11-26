@@ -359,7 +359,7 @@ def write_lines(writer: "Writer", lines: list[str], o: Options) -> tuple[list[np
     return out, stats
 
 
-CACHE_VERSION = 8  # bump when word synthesis changes
+CACHE_VERSION = 9  # bump when word synthesis changes
 
 
 def _cache_dir():
@@ -416,7 +416,7 @@ def _max_cer(o: "Options", prof: dict) -> float:
         return 0.15
     if prof and o.legibility == "loose":
         return prof.get("max_cer", 0.5)
-    return 0.15   # one slip per 7 letters; 0.25 let "Coeffiuent" through
+    return 0.10   # one slip per 10 letters at most
 
 
 # plausible ranges for measured profile values; a value outside (a bad grid or scale estimate

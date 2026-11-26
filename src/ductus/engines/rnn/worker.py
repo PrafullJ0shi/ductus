@@ -41,7 +41,7 @@ class Model:
         nT = len(T)
         ids = np.array([T.get(c, 0) for c in text])
         coord = np.array([0., 0., 1.])
-        coords, att = [coord], [0]
+        coords, att, pos = [coord], [0], [0.0]
         prime_len = style_len = 0
         seq_prime = prime = None
         if style is not None:
@@ -74,6 +74,7 @@ class Model:
                 break
             coords.append(coord)
             att.append(int(np.argmax(phi[0])))
+            ph = phi[0].ravel(); pos.append(float((ph * np.arange(len(ph))).sum() / max(ph.sum(), 1e-9)))
             if fin[0, 0] > 0.8:
                 ok = True
                 break
@@ -90,11 +91,12 @@ class Model:
             extent = np.ptp(absx, axis=0).max() if len(absx) > 1 else 0.
             right = absx[:, 0].min() > absp[1:start, 0].max() + 0.3
             if att[start:].min() >= style_len + n_real and extent < 1.2 and right:
-                coords, att = coords[:start], att[:start]
+                coords, att, pos = coords[:start], att[:start], pos[:start]
                 coords[-1, 2] = 1.
             else:
                 break
-        return coords, ok
+        off = style_len + (1 if style is not None else 0)   # attention index -> index in the caller's text
+        return coords, ok, (att - off).tolist(), (np.array(pos) - off).round(3).tolist()
 
 
 def main():
@@ -105,8 +107,8 @@ def main():
             continue
         q = json.loads(raw)
         text = "".join(c for c in q["text"] if c in m.translation)
-        coords, ok = m.line(text, float(q.get("bias", 1.5)), q.get("style"), np.random.RandomState(int(q.get("seed", 0))))
-        print(json.dumps({"coords": np.round(coords, 4).tolist(), "ok": bool(ok), "text": text}), flush=True)
+        coords, ok, att, pos = m.line(text, float(q.get("bias", 1.5)), q.get("style"), np.random.RandomState(int(q.get("seed", 0))))
+        print(json.dumps({"coords": np.round(coords, 4).tolist(), "ok": bool(ok), "text": text, "att": att, "pos": pos}), flush=True)
 
 
 if __name__ == "__main__":

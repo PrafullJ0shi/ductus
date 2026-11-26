@@ -36,16 +36,115 @@ def available() -> bool:
     return (model_dir() / "pretrained" / "model-29.meta").exists()
 
 
-def to_strokes(coords: np.ndarray) -> list[np.ndarray]:
-    """Pen offsets -> absolute strokes, deskewed, left-aligned, median y at 0."""
+PLAIN_SHIFT = 0.4   # the attention's mean position runs ahead of the pen by about this much
+
+
+def plain_r_strokes(pts: np.ndarray, pos, text: str, rng=None) -> list[np.ndarray]:
+    """Absolute points (x, y down, pen-up flag) -> strokes, with every lowercase r redrawn as a
+    plain print r: one straight stem, retraced up to just over half height, and one small
+    shoulder arc. No lead-in, no top flick, no loop. The r's own points are found from the
+    model's attention (mean attended position, shifted by PLAIN_SHIFT)."""
+    rng = rng or np.random.default_rng(0)
+    n = len(pts)
+    keep = np.ones(n, bool)
+    inserts = {}                                   # point index -> synthetic stroke drawn there
+    if pos is not None and "r" in text and len(pos) == n:
+        P = np.asarray(pos)
+        span = max(1e-6, np.ptp(pts[:, 0]))
+        adv = span / max(1, len(text.strip()))     # mean character advance
+        xh = 0.86 * adv
+        taken = np.zeros(n, bool)
+        for ci, ch in enumerate(text):
+            if ch != "r":
+                continue
+            win = np.where((P >= ci - 0.1) & (P < ci + 1.45) & ~taken)[0]
+            if len(win) < 4:
+                continue
+            runs = np.split(win, np.where(np.diff(win) > 1)[0] + 1)
+            i0, i1 = max(runs, key=len)[[0, -1]]
+            seg = pts[i0:i1 + 1]
+            y = seg[:, 1]
+            # stem: the downstroke (>= 0.4 xh tall, mostly vertical) whose points the model
+            # attended to as this r; its last point is the stem bottom
+            Ps = P[i0:i1 + 1]
+            best, ib = -1.0, -1
+            q = 0
+            while q < len(seg) - 1:
+                r0 = q
+                while q + 1 < len(seg) and seg[q + 1, 1] >= seg[q, 1] - 0.01 * xh and seg[q, 2] != 1.:
+                    q += 1
+                dy = seg[q, 1] - seg[r0, 1]; dx = abs(seg[q, 0] - seg[r0, 0])
+                climbs = False                     # an r retraces up its stem before the shoulder
+                for u in range(q + 1, min(len(seg), q + 40)):
+                    if seg[u - 1, 2] == 1.:
+                        break
+                    if seg[u, 1] <= seg[q, 1] - 0.3 * xh:
+                        climbs = seg[u, 0] <= seg[q, 0] + 0.35 * xh
+                        break
+                if dy >= 0.4 * xh and dx <= 0.6 * dy and climbs:
+                    score = float(((Ps[r0:q + 1] >= ci + 0.35) & (Ps[r0:q + 1] < ci + 1.35)).sum())
+                    if score > best:
+                        best, ib, ist = score, q, r0
+                q += 1
+            if ib < 0 or best < 2:
+                continue
+            xs, bottom = float(seg[ib, 0]), float(seg[ib, 1])
+            top_pre = float(y[ist:ib + 1].min())
+            # shoulder: after the bottom the pen climbs and moves right; it ends at a pen lift,
+            # when x turns back, when it drops 0.22 xh below its highest point, or 0.75 xh right
+            ie, ytop = ib, bottom
+            for q in range(ib + 1, len(seg)):
+                if seg[q - 1, 2] == 1.:
+                    break
+                if seg[q, 0] > xs + 0.75 * xh:
+                    break
+                if seg[q, 0] < seg[q - 1, 0] - 0.03 * xh and seg[q, 0] > xs + 0.2 * xh:
+                    break
+                ytop = min(ytop, seg[q, 1])
+                if seg[q, 1] > ytop + 0.22 * xh and seg[q, 0] > xs + 0.15 * xh:
+                    break
+                ie = q
+            if ie - ib < 2 or (ie - ib) > 60:
+                continue
+            h = float(np.clip(bottom - min(top_pre, ytop), 0.75 * xh, 1.1 * xh))
+            top = bottom - h
+            w = h * rng.uniform(0.5, 0.62)
+            jt = lambda v: v + rng.normal(0, 0.012 * h)
+            stem = [(jt(xs), top + t * h) for t in np.linspace(0, 1, 7)]
+            back = [(jt(xs + 0.02 * h), bottom - t * 0.55 * h) for t in np.linspace(0.1, 1, 5)]
+            arc = []
+            for t in np.linspace(0, 1, 9):         # quarter-ellipse shoulder, ends level, no hook
+                an = t * np.pi / 2
+                arc.append((xs + 0.02 * h + w * np.sin(an) * 0.92,
+                            top + 0.45 * h - 0.43 * h * np.sin(an) + 0.20 * h * t ** 3))
+            # drop the r's own points: the lead-in down to the stem top, the stem and the shoulder
+            j0 = i0 + ist + int(np.argmin(y[ist:ib + 1]))
+            keep[j0:i0 + ie + 1] = False
+            taken[j0:i0 + ie + 1] = True
+            inserts[j0] = np.array(stem + back + arc)
+    strokes, cur = [], []
+    for i in range(n):
+        if i in inserts:
+            if cur:
+                strokes.append(np.array(cur)); cur = []
+            strokes.append(inserts[i])
+        if keep[i]:
+            cur.append(pts[i, :2])
+        elif cur:
+            strokes.append(np.array(cur)); cur = []
+        if pts[i, 2] == 1. and cur:
+            strokes.append(np.array(cur)); cur = []
+    if cur:
+        strokes.append(np.array(cur))
+    return [s for s in strokes if len(s) > 0]
+
+
+def to_strokes(coords: np.ndarray, pos=None, text: str = "") -> list[np.ndarray]:
+    """Pen offsets -> absolute strokes, deskewed, left-aligned, median y at 0. With the
+    attention positions and the text, every r is redrawn plain (plain_r_strokes)."""
     pts = coords.copy()
     pts[:, :2] = np.cumsum(pts[:, :2], axis=0)
-    strokes, b = [], 0
-    for i in range(len(pts)):
-        if pts[i, 2] == 1.:
-            strokes.append(pts[b:i + 1, :2].copy())
-            b = i + 1
-    strokes = [s for s in strokes if len(s) > 0]
+    strokes = plain_r_strokes(pts, pos, text)
     if len(strokes) > 1 and len(strokes[0]) == 1:
         strokes = strokes[1:]
     if not strokes:
@@ -95,6 +194,7 @@ class RNNEngine:
     """Same interface as DiffBrushEngine: generate(texts, style_img, seed) -> line images."""
     name = "rnn"
     xh_per_cw = 0.86     # x-height per mean character advance (diffusion lines: 1.15)
+    plain_r = True       # redraw every r as a plain print r
     per_word_xh = True   # RNN letter size drifts within a line: measure each word
 
     def __init__(self, style: int | None = 1, bias: float = 1.5, python: str | None = None):
@@ -125,7 +225,7 @@ class RNNEngine:
              "style": self.style if style == "default" else style, "seed": int(seed)}
         self.proc.stdin.write(json.dumps(q) + "\n")
         r = json.loads(self.proc.stdout.readline())
-        return to_strokes(np.array(r["coords"], dtype=np.float64)), r["ok"]
+        return to_strokes(np.array(r["coords"], dtype=np.float64), r.get("pos") if self.plain_r else None, r.get("text", text)), r["ok"]
 
     def generate(self, texts: list[str], style_img=None, seed: int = 0) -> list[np.ndarray]:
         out = []
