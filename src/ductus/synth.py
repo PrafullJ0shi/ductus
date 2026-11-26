@@ -115,7 +115,8 @@ class Synthesizer:
         out, cur, n = [], [], 0
         solo = []
         for wid, w in words:
-            if SOLO.match(w):          # "4)", "(b)": the gap inside them looks like a word gap
+            if getattr(self, "_solo_ok", True) and (SOLO.match(w) or getattr(self, "_solo_all", False)):
+                # "4)", "(b)"; later RNN rounds: every word alone (diffusion repeats a lone word)
                 solo.append([(wid, w)])
                 continue
             extra = len(w) + (1 if cur else 0)
@@ -173,6 +174,8 @@ class Synthesizer:
             self._glyph_mode = getattr(eng, "glyphs", "")
             if hasattr(eng, "round"):
                 eng.round = rnd                  # the RNN writes neater on later rounds
+            self._solo_ok = getattr(eng, "name", "") == "rnn"
+            self._solo_all = rnd >= 2 and self._solo_ok   # a crop from a line of one word cannot belong to another word
             carriers = self._carriers(todo, rng)
             self.log(f"round {rnd + 1} ({getattr(eng, 'name', 'diffusion')}): {len(todo)} words in {len(carriers)} lines")
             for i in range(0, len(carriers), self.batch):
