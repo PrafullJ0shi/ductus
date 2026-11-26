@@ -1,0 +1,16 @@
+# Statistics - Unit 2
+
+Population :: the whole group we want to study
+Sample :: a small part of the population, chosen to study it
+Parameter :: a number that describes the population, like mu
+Statistic :: a number computed from the sample, like x bar
+Note: a statistic changes from sample to sample, a parameter does not
+
+---
+
+## Types of data
+Qualitative -> categories, e.g. colour, gender
+Quantitative -> numbers, e.g. height, marks
+1) Discrete -> counted, e.g. no. of students [v]
+2) Continuous -> measured, e.g. weight [v]
+3) ~~Ordinal~~ qualitative only

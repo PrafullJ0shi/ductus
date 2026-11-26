@@ -1,0 +1,15 @@
+# Exam prep - week 7
+
+1) Measures of central tendency [v]
+2) Mean deviation and quartile deviation [v]
+3) Standard deviation, short-cut method [v]
+4) Skewness -> Karl Pearson method
+5) {oops:Kurtosis} Moments first, then kurtosis
+6) Correlation, scatter diagram [x]
+7) Regression lines -> revise formulas
+
+---
+
+Note: do 2 past papers before Sunday
+- ask sir about Q14 of the 2024 paper
+- __submit the assignment on Monday__

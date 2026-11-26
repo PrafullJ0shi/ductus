@@ -131,13 +131,32 @@ class Synthesizer:
                         x_end = min(img.shape[1], real[-1][1] + 6)
                         line_read = self.reader.read([img[:, :x_end]])[0]
                         read_words = align_words([w for _, w in group], line_read.split())
+                    ink_w = real[-1][1] - real[0][0]
+                    chars = sum(len(w) for _, w in group) + len(group) - 1
+                    cw = ink_w / max(1, chars)             # mean character width on this line
+                    items = []
                     for k, ((wid, w), (x0, x1)) in enumerate(zip(group, real)):
                         sub = a[:, max(0, x0 - 1):x1 + 1]
                         if tight_bbox(sub) is None:
                             continue
-                        r = read_words[k] if read_words is not None else None
-                        err = self._accept(w, r) if r is not None else 0.0
-                        cand = WordImage(w, sub, bl, xh, 1.0 - err, r or "")
+                        ratio = (x1 - x0) / max(1.0, cw * len(w))
+                        items.append((wid, w, sub, img[:, max(0, x0 - 1):x1 + 1], k, ratio))
+                    # word-level read-back as a second opinion (catches split errors and
+                    # misspellings the line-level language prior quietly corrects)
+                    word_reads = None
+                    if self.reader is not None and items:
+                        word_reads = self.reader.read([it[3] for it in items])
+                    for n, (wid, w, sub, _, k, ratio) in enumerate(items):
+                        if read_words is not None:
+                            e_line = self._accept(w, read_words[k])
+                            e_word = self._accept(w, word_reads[n]) if len(normalise(w)) >= 3 else e_line
+                            err = 0.5 * (e_line + e_word)
+                        else:
+                            err = 0.0
+                        if not (0.4 <= ratio <= 2.4) and len(w) >= 3:
+                            err = max(err, 1.0)          # the split put this word in the wrong span
+                        r = read_words[k] if read_words is not None else ""
+                        cand = WordImage(w, sub, bl, xh, 1.0 - err, r)
                         if wid not in best or cand.score > best[wid].score:
                             best[wid] = cand
             pending = [(wid, w) for wid, w in pending

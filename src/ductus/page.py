@@ -161,3 +161,41 @@ class Writer:
                      ocr_mean_score=round(float(np.mean([w.score for w in words])), 3) if words else None,
                      pen_px=round(sw, 2), max_cer=max_cer)
         return Result(out, pages, words, look, stats)
+
+
+def write_lines(writer: "Writer", lines: list[str], o: Options) -> tuple[list[np.ndarray], dict]:
+    """Write each string as one unwrapped line and return tight grayscale crops.
+    Used by the evaluation scripts so every system is scored on the same line images."""
+    from .synth import Synthesizer
+    from .render import ink_coverage, compose
+    from .segment import stroke_width, tight_bbox
+    t0 = time.time()
+    refs, prof = load_style(o.style)
+    look = Look.preset(o.look if o.look != "profile" else "natural")
+    if prof:
+        for k, v in prof.get("look", {}).items():
+            if hasattr(look, k):
+                setattr(look, k, v)
+    look.margin_mm = (4, 4, 4, 4)
+    blocks = [markup.parse(t, o.mode)[0] for t in lines]
+    per_line = [[w.text for w in markup.block_words(b)] for b in blocks]
+    flat = [w for ws in per_line for w in ws]
+    max_cer = o.max_cer if o.max_cer is not None else (0.5 if prof else (0.15 if o.look == "neat" else 0.25))
+    syn = Synthesizer(writer.engine, refs[0], writer.reader if o.verify else None, max_cer=max_cer,
+                      loose=bool(prof), seed=o.seed, log=o.log)
+    words = syn.run(flat)
+    out, k = [], 0
+    rng = np.random.default_rng(o.seed)
+    for b, ws in zip(blocks, per_line):
+        sub = words[k:k + len(ws)]
+        k += len(ws)
+        L = Layouter(sub, [w.deco for w in markup.block_words(b)], look, seed=o.seed + k, page_size=(5600, 520))
+        pg = L.layout([b])[0]
+        sw = float(np.median([stroke_width(w.alpha) for w in sub])) * L.s
+        ink = ink_coverage(pg, sub, look.mess, look.pen, max(2.0, sw), rng, size=(5600, 520))
+        img = compose(ink, "#000000", look.pressure, rng)[..., 0]
+        bb = tight_bbox((255 - img.astype(np.float32)) / 255.0, 0.2)
+        x0, y0, x1, y1 = bb
+        out.append(img[max(0, y0 - 16):y1 + 16, max(0, x0 - 16):x1 + 16])
+    stats = dict(syn.stats, seconds=round(time.time() - t0, 1))
+    return out, stats
