@@ -64,6 +64,7 @@ class Placed:
     angle: float        # degrees, positive = counter-clockwise
     ink: float = 1.0    # density factor
     sx: float = 1.0     # horizontal squeeze (cramped word at a line end)
+    clip: tuple | None = None   # draw only this horizontal fraction of the word (a retouched letter)
 
 
 @dataclass

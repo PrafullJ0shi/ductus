@@ -76,6 +76,8 @@ class Options:
     tip: float | None = None         # nominal tip size in mm (0.5, 0.7, 1.0)
     weight: float | None = None      # stroke weight multiplier on top of the pen
     flat_ink: bool = False           # old flat ink model (kept for comparison)
+    ink_model: str = "realism"       # realism (default) | pens | flat
+    humanize: float = 0.5            # rate of the realism.human_errors pass on the laid-out page (0 = off)
     size: float | None = None        # x-height mm
     log: object = print
 
@@ -167,9 +169,19 @@ class Writer:
         nrng = np.random.default_rng(o.seed)
         for pi, pg in enumerate(pages):
             paper = make_paper(o.paper, seed=o.seed + pi)
-            if o.flat_ink:
+            if o.humanize and o.look != "neat":
+                from .humanize_bridge import humanize_page
+                humanize_page(pg, words, L, o.humanize, o.seed + pi)
+            model = "flat" if o.flat_ink else o.ink_model
+            if model == "flat":
                 ink = ink_coverage(pg, words, look.mess, look.pen, sw, nrng)
                 img = compose(ink, look.ink, look.pressure, nrng, paper)
+            elif model == "realism":
+                from .render import compose_realism
+                from .render import hex_rgb
+                shape, count = ink_coverage(pg, words, look.mess, look.pen, sw, nrng, nib=nib, with_count=True)
+                rgb = tuple(int(v) for v in hex_rgb(o.ink or look.ink)) if (o.ink or (prof and not o.pen)) else None
+                img = compose_realism(shape, count, pen, o.seed + pi, paper, rgb=rgb, smudges=look.smudges)
             else:
                 shape, count = ink_coverage(pg, words, look.mess, look.pen, sw, nrng, nib=nib, with_count=True)
                 img = compose_physical(shape, count, pen, look.pressure, nrng, paper, smudges=look.smudges)

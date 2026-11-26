@@ -1,0 +1,132 @@
+{
+  "status": "measured",
+  "n_photos": 1,
+  "aggregate": {
+    "jpeg_quality": 80.0,
+    "paper_rgb": [
+      195.0,
+      194.0,
+      189.0
+    ],
+    "paper_cct_K": 6228.281719115423,
+    "ink_rgb_core": [
+      55.0,
+      55.0,
+      64.0
+    ],
+    "ink_on_white_rgb": [
+      71.25,
+      71.79611206054688,
+      83.5152816772461
+    ],
+    "ink_width_px": 2.893355128452328,
+    "noise_sigma_Y": 0.677461564540863,
+    "noise_sigma_C": 0.11923381686210632,
+    "edge_sigma_px": 1.1443817498828421,
+    "rotation_deg_abs": 2.8000000000000256,
+    "vertical_convergence_deg_abs": 3.4999999999999876,
+    "light_gradient": 0.15362955629825592,
+    "vignette": 0.043902263045310974,
+    "page_coverage": 0.8149710648148148,
+    "size": [
+      1440,
+      1920
+    ]
+  },
+  "capture_params": {
+    "jpeg_quality": 80,
+    "out_size": [
+      1920,
+      1440
+    ],
+    "roll_deg": 3.5,
+    "pitch_deg": 10.5,
+    "light_gradient": 0.154,
+    "vignette": 0.044,
+    "noise_shot": 3.167359544961688e-05,
+    "noise_read": 5.630861413265224e-07,
+    "base_blur": 1.09,
+    "wb_gains": [
+      0.9681,
+      1.0,
+      1.0272
+    ],
+    "exposure": 0.539,
+    "page_fill": 0.921
+  },
+  "ink": {
+    "ballpoint-blue_rgb": [
+      71.25,
+      71.79611206054688,
+      83.5152816772461
+    ],
+    "ink_width_px_at_photo": 2.893355128452328
+  },
+  "per_photo": [
+    {
+      "file": "d5d77dcd015371d1ed2a1803a73087be47b65439ed9fd3f4a6b85c2eee90e735.jpg",
+      "size": [
+        1440,
+        1920
+      ],
+      "jpeg": {
+        "quality": 80,
+        "fit_error": 0.0,
+        "subsampling": "4:2:0",
+        "scale_pct": 40.0
+      },
+      "exif": {},
+      "paper_rgb": [
+        195.0,
+        194.0,
+        189.0
+      ],
+      "paper_cct_K": 6228.281719115423,
+      "wb_gains_observed": [
+        1.0115760564804077,
+        1.0,
+        0.9432821869850159
+      ],
+      "page_coverage": 0.8149710648148148,
+      "ink_rgb_core": [
+        55.0,
+        55.0,
+        64.0
+      ],
+      "ink_rgb_mean": [
+        116.0,
+        118.0,
+        137.0
+      ],
+      "ink_transmittance": [
+        0.27941176295280457,
+        0.28155338764190674,
+        0.32751092314720154
+      ],
+      "ink_on_white_rgb": [
+        71.25,
+        71.79611206054688,
+        83.5152816772461
+      ],
+      "ink_width_px": 2.893355128452328,
+      "ink_pixel_share": 0.01243381076388889,
+      "ink_lum_iqr": 88.33333587646484,
+      "noise_sigma": {
+        "Y": 0.677461564540863,
+        "Cr": 0.0921885073184967,
+        "Cb": 0.14627912640571594
+      },
+      "edge_sigma_px": 1.1443817498828421,
+      "laplacian_var": 216.28152465820312,
+      "rotation_deg": -2.8000000000000256,
+      "vertical_convergence_deg": -3.4999999999999876,
+      "light_gradient": 0.15362955629825592,
+      "light_direction_deg": -112.9029769897461,
+      "vignette": 0.043902263045310974,
+      "paper_lum_p5_p95": [
+        164.88427734375,
+        206.9709930419922
+      ]
+    }
+  ]
+}

@@ -37,6 +37,8 @@ def make_paper(kind: str = "white", size=A4, seed: int = 0) -> np.ndarray:
 
 
 def phone_photo(img: np.ndarray, seed: int = 0, **kw) -> np.ndarray:
-    """Phone capture of the page; see photo.py for the camera model."""
-    from .photo import Capture, capture
-    return capture(img, seed, Capture(**kw))
+    """Phone capture of the page with parameters calibrated on real photos
+    (realism.phone_capture; calibration.json). The older model is kept in photo.py."""
+    from .realism.phone_capture import capture
+    out, _info = capture(img, seed, **kw)
+    return out

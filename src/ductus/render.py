@@ -116,6 +116,13 @@ def ink_coverage(page: Page, words, mess: float, pen: float, pen_px: float, rng,
         lay, (ax, ay) = word_layer(wi.alpha, pl.scale, pl.angle, mess, pen, wi.baseline,
                                    stroke_px=pen_px * pen * float(np.clip(pl.ink, 0.9, 1.1)) if uniform else None,
                                    nib=nib, sx=getattr(pl, "sx", 1.0))
+        clip = getattr(pl, "clip", None)
+        if clip is not None:
+            wpx = wi.alpha.shape[1] * pl.scale * getattr(pl, "sx", 1.0) * SS
+            c0, c1 = int(ax + clip[0] * wpx) - 2, int(ax + clip[1] * wpx) + 2
+            lay = lay.copy()
+            lay[:, :max(0, c0)] = 0
+            lay[:, max(0, c1):] = 0
         # crop origin (top-left) sits at baseline - wi.baseline*scale
         ox = int(round(pl.x * SS - ax))
         oy = int(round((pl.base - wi.baseline * pl.scale) * SS - ay))
@@ -271,3 +278,36 @@ def save_svg(page: Page, words, path: str, ink_hex: str, pen_px: float, animate:
                 body.append(f'<path d="{d}" fill="none" stroke="{ink_hex}" stroke-width="{sw:.1f}" stroke-linecap="round" stroke-linejoin="round"/>')
     out += defs + ['</defs>'] + body + ['</svg>']
     Path(path).write_text("\n".join(out))
+
+
+REALISM_PENS = {"blue-ballpoint": "ballpoint-blue", "black-ballpoint": "ballpoint-black", "blue-gel": "gel-blue",
+                "black-gel": "gel-black", "fountain": "fountain", "pencil": "pencil"}
+
+
+def compose_realism(shape: np.ndarray, count: np.ndarray, pen, seed: int, paper: np.ndarray | None = None,
+                    rgb=None, smudges: float = 0.0) -> np.ndarray:
+    """Default ink model (realism.ink): the page's stroke shape at 600 dpi is re-inked with
+    oriented striations, skips, flow variation and blobs; strokes that pass twice are inked
+    twice (overlap darkening). Composited in linear light onto the paper, then 300 dpi."""
+    from .realism import ink as RI
+    name = REALISM_PENS.get(getattr(pen, "name", pen), "ballpoint-blue")
+    H, W = shape.shape
+    if paper is None:
+        paper = np.full((H // SS, W // SS, 3), 255, np.uint8)
+    big = cv2.resize(paper.astype(np.uint8), (W, H), interpolation=cv2.INTER_LINEAR)
+    m = shape > 0.02
+    if m.any():
+        ys, xs = np.where(m)
+        y0, y1 = max(0, ys.min() - 16), min(H, ys.max() + 17)
+        x0, x1 = max(0, xs.min() - 16), min(W, xs.max() + 17)
+        cov = shape[y0:y1, x0:x1]
+        if smudges:
+            from .layout import MM
+            cov = smudge(cov.copy(), np.random.default_rng(seed + 7), smudges, MM * SS)
+        layer = RI.ink_from_mask(cov, dpi=300 * SS, pen=name, seed=seed, rgb=rgb)
+        sub = RI.composite(big[y0:y1, x0:x1], layer)
+        twice = cov * (count[y0:y1, x0:x1] >= 2)
+        if twice.any():
+            sub = RI.composite(sub, RI.ink_from_mask(twice, dpi=300 * SS, pen=name, seed=seed + 1, rgb=rgb))
+        big[y0:y1, x0:x1] = sub
+    return cv2.resize(big, (W // SS, H // SS), interpolation=cv2.INTER_AREA)

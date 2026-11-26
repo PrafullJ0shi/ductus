@@ -23,7 +23,7 @@ def cmd_write(a):
     o = Options(style=a.style, look=a.look, mode=a.mode, paper=a.paper, photo=a.photo, ink=a.ink,
                 seed=a.seed, steps=a.steps, verify=not a.no_verify, max_cer=a.max_cer,
                 corrections=a.corrections, pen=a.pen, tip=a.tip, weight=a.weight,
-                flat_ink=a.flat_ink, size=a.size,
+                flat_ink=a.flat_ink, ink_model=a.ink_model, humanize=a.humanize, size=a.size,
                 log=(lambda *x: None) if a.quiet else (lambda *x: print(*x, file=sys.stderr)))
     w = Writer(steps=a.steps, verify=not a.no_verify)
     r = w.write(text, o)
@@ -83,6 +83,10 @@ def main(argv=None):
     w.add_argument("--tip", type=float, help="nominal tip size in mm: 0.5, 0.7 or 1.0")
     w.add_argument("--weight", type=float, help="stroke weight multiplier on top of the pen (1.0 = as is)")
     w.add_argument("--flat-ink", action="store_true", help="old flat ink model, for comparison")
+    w.add_argument("--ink-model", default="realism", choices=["realism", "pens", "flat"],
+                   help="realism (default, calibrated), pens (simpler model in pens.py) or flat")
+    w.add_argument("--humanize", type=float, default=0.5,
+                   help="rate of the human-error pass on the laid-out page (0 = off; ignored for --look neat)")
     w.add_argument("--size", type=float, help="x-height in mm (default 2.8)")
     w.add_argument("--seed", type=int, default=0)
     w.add_argument("--steps", type=int, default=25, help="diffusion steps (quality vs speed)")
