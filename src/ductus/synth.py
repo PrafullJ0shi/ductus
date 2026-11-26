@@ -12,7 +12,7 @@ from dataclasses import dataclass, field
 
 import numpy as np
 
-from .segment import clean_line, split_words, baseline_and_xheight, tight_bbox
+from .segment import split_by_length, clean_line, split_words, baseline_and_xheight, tight_bbox
 from .verify import cer, normalise
 
 FILLER = ("and the of with over into from about under while still both more when then "
@@ -122,7 +122,10 @@ class Synthesizer:
                 gen_lines += len(chunk)
                 for (group, full), img in zip(chunk, imgs):
                     a = clean_line(img)
-                    spans = split_words(a, len(full.split()))
+                    n_full = len(full.split())
+                    spans = split_words(a, n_full) or split_words(a, n_full, min_gap=1)
+                    if spans is None:
+                        spans = split_by_length(a, full.split())   # joined-up hand: cut by length
                     if spans is None:
                         continue
                     bl, xh = baseline_and_xheight(a)

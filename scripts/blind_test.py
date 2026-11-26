@@ -59,7 +59,7 @@ def feats(win):
     return np.r_[h, lh, ink.mean(), ink.std(), (ink > 0.5).mean()]
 
 
-def cnn_cv(X, y, groups, folds=5, epochs=12):
+def cnn_cv(X, y, groups, folds=5, epochs=20):
     import torch, torch.nn as nn
     from sklearn.model_selection import GroupKFold
     accs = []
@@ -88,6 +88,8 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--real"); ap.add_argument("--fake"); ap.add_argument("--out", default="blind")
     ap.add_argument("--sheet", type=int, default=24)
+    ap.add_argument("--binarize", action="store_true",
+                    help="threshold both sets and soften edges the same way, so only letter shapes differ")
     ap.add_argument("--score", help="answers JSON {number: 'real'|'generated'} to score against the key")
     a = ap.parse_args()
     out = Path(a.out); out.mkdir(parents=True, exist_ok=True)
@@ -98,16 +100,30 @@ def main():
         print(json.dumps({"correct": right, "total": len(ans), "accuracy": right / max(1, len(ans))}))
         return
     X, y, g, wins = [], [], [], []
-    for label, d in ((1, a.real), (0, a.fake)):
-        for li, p in enumerate(load_dir(d)):
+    fake_files = load_dir(a.fake)
+    prefixes = {p.name.split("_")[0] for p in fake_files}
+    # only writers that appear in both sets
+    real_files = [p for p in load_dir(a.real) if p.name.split("_")[0] in prefixes]
+    for label, files in ((1, real_files), (0, fake_files)):
+        for li, p in enumerate(files):
             im = cv2.imread(str(p), 0)
             n = normalise(im) if im is not None else None
+            if n is not None and a.binarize:
+                n = cv2.GaussianBlur(np.where(n < 128, 0, 255).astype(np.uint8), (3, 3), 0.8)
             if n is None:
                 continue
             for w_ in windows(n):
                 wins.append((label, w_))
                 X.append(w_); y.append(label); g.append(f"{label}-{li}")
     X, y = np.array(X), np.array(y)
+    g = np.array(g)
+    # balance the classes so chance is 50%
+    rs = np.random.RandomState(0)
+    i1, i0 = np.where(y == 1)[0], np.where(y == 0)[0]
+    k = min(len(i1), len(i0))
+    keep = np.sort(np.r_[rs.choice(i1, k, replace=False), rs.choice(i0, k, replace=False)])
+    X, y, g = X[keep], y[keep], list(g[keep])
+    wins = [wins[i] for i in keep]
     print(f"windows: real {int(y.sum())}, generated {int((1 - y).sum())}")
     from sklearn.linear_model import LogisticRegression
     from sklearn.model_selection import GroupKFold, cross_val_score

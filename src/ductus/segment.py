@@ -132,3 +132,29 @@ def ref_habits(gray: np.ndarray) -> dict:
     if len(word_gaps) >= 2:
         out["gap_xh"] = float(np.clip(np.median(word_gaps) / xh, 0.5, 2.2))
     return out
+
+
+def split_by_length(alpha: np.ndarray, words: list[str]) -> list[tuple[int, int]] | None:
+    """Fallback for joined-up writing with no clear word gaps: cut the ink span in
+    proportion to character counts, snapping each cut to the emptiest column nearby.
+    The caller's width and OCR checks reject cuts that land badly."""
+    cols = alpha.sum(axis=0)
+    xs = np.where(cols > 0.25)[0]
+    if len(xs) == 0 or not words:
+        return None
+    x0, x1 = int(xs.min()), int(xs.max())
+    total = sum(len(w) for w in words) + len(words) - 1
+    unit = (x1 - x0) / max(1, total)
+    spans, left, pos = [], x0, 0
+    for w in words[:-1]:
+        pos += len(w)
+        c = int(x0 + (pos + 0.5) * unit)
+        lo, hi = max(left + 1, c - int(unit * 1.5)), min(x1 - 1, c + int(unit * 1.5))
+        if hi <= lo:
+            return None
+        cut = lo + int(np.argmin(cols[lo:hi]))
+        spans.append((left, cut))
+        left = cut + 1
+        pos += 1
+    spans.append((left, x1))
+    return spans
