@@ -47,7 +47,7 @@ class Pen:
 TIPS = {0.5: 0.30, 0.7: 0.38, 1.0: 0.50}
 
 PENS = {
-    "blue-ballpoint": Pen("blue-ballpoint", "#2b3f9e", 0.38, "ballpoint"),
+    "blue-ballpoint": Pen("blue-ballpoint", "#2c3a86", 0.38, "ballpoint"),
     "black-ballpoint": Pen("black-ballpoint", "#2a2a30", 0.38, "ballpoint", density=1.05),
     "blue-gel": Pen("blue-gel", "#1f3fc4", 0.48, "gel", density=1.25, speed=0.08, blob=0.15,
                     skips=0.0, rough=0.2, bleed=0.9),
@@ -141,10 +141,12 @@ def concentration(shape: np.ndarray, count: np.ndarray, pen: Pen, rng, px_per_mm
 
     if pen.skips > 0:
         # faint gaps: elongated low-ink patches, only on fast stretches
-        n = _noise(S.shape, rng, 0.25 * px_per_mm)
-        gap = (n > 1.6 - 0.8 * pen.skips) & (coh > 0.75)
-        gap = cv2.GaussianBlur(gap.astype(np.float32), (0, 0), 0.6)
-        c = c * (1 - 0.6 * gap)
+        # anisotropic noise: short streaks rather than round holes
+        n = _noise((S.shape[0] // 3 + 1, S.shape[1]), rng, 0.12 * px_per_mm)
+        n = cv2.resize(n, (S.shape[1], S.shape[0]), interpolation=cv2.INTER_LINEAR)
+        gap = (n > 2.2 - 0.8 * pen.skips) & (coh > 0.8)
+        gap = cv2.GaussianBlur(gap.astype(np.float32), (0, 0), 0.8)
+        c = c * (1 - 0.4 * gap)
 
     # ink deposits inside the stroke shape with a rough edge
     edge_n = _noise(S.shape, rng, 0.06 * px_per_mm)

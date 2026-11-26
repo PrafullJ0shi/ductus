@@ -25,11 +25,11 @@ JOBS = [
     ("intro-neat", "intro.txt", dict(mode="plain", look="neat", style="upright", seed=2)),
     ("intro-messy", "intro.txt", dict(mode="plain", look="messy", style="quick", seed=4)),
     ("notes-grid-blue", "notes-statistics.txt", dict(mode="notes", look="natural", style="loose",
-                                                    paper="grid", ink="#1b3fa0", seed=6)),
+                                                    paper="grid", seed=6)),
     ("checklist-ruled-black", "checklist.txt", dict(mode="notes", look="natural", style="slant",
-                                                   paper="ruled", ink="#1a1a1a", seed=8)),
+                                                   paper="ruled", pen="black-ballpoint", seed=8)),
     ("notes-photo", "notes-statistics.txt", dict(mode="notes", look="messy", style="quick",
-                                                paper="grid", ink="#1b3fa0", photo=True, seed=10)),
+                                                paper="grid", photo=True, seed=10)),
 ]
 
 w = Writer()
