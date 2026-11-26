@@ -79,7 +79,7 @@ def _place(G, ch, mode, x_left, base, h, rng, text, ci, old_right):
     return new, max(dx, -0.2 * h)
 
 
-def glyph_strokes(pts: np.ndarray, pos, text: str, mode: str = "cursive", rng=None) -> list[np.ndarray]:
+def glyph_strokes(pts: np.ndarray, pos, text: str, mode: str = "cursive", rng=None, m_at=()) -> list[np.ndarray]:
     """Absolute points (x, y down, pen-up flag) -> strokes, with every lowercase r and f redrawn
     from the templates in glyphs.py ("cursive": the target hand's school-cursive r and looped f;
     "print": plain print forms; "off": unchanged). Each letter's own points are found from the
@@ -91,7 +91,7 @@ def glyph_strokes(pts: np.ndarray, pos, text: str, mode: str = "cursive", rng=No
     n = len(pts)
     keep = np.ones(n, bool)
     inserts = {}
-    if mode == "off" or pos is None or len(pos) != n or not any(c in text for c in "rf"):
+    if mode == "off" or pos is None or len(pos) != n or (not any(c in text for c in "rf") and not m_at):
         inserts = {}
     else:
         P = np.asarray(pos)
@@ -218,6 +218,51 @@ def glyph_strokes(pts: np.ndarray, pos, text: str, mode: str = "cursive", rng=No
     if __import__("os").environ.get("GLYPH_LOG"):
         import sys as _s
         print(f"glyphs {mode}: {len(inserts)} of {sum(text.count(c) for c in 'rf')} r/f redrawn in {text!r}", file=_s.stderr)
+    if mode != "off" and pos is not None and len(pos) == n and m_at:
+        P = np.asarray(pos)
+        adv = max(1e-6, np.ptp(pts[:, 0])) / max(1, len(text.strip()))
+        xh = 0.86 * adv
+        for j in m_at:
+            # a word-initial capital M was left out of the model's text (its M often reads as H):
+            # draw the template M where the word starts and move the rest of the line right
+            first = np.where(P >= j - 0.2)[0]
+            if len(first) < 3:
+                continue
+            ie = int(first[0])
+            while (ie > 0 and pts[ie - 1, 2] != 1. and P[ie - 1] > j - 1.2
+                   and abs(pts[ie, 0] - pts[ie - 1, 0]) < 0.5 * xh):
+                ie -= 1                                # back to where this pen-down stroke began
+            lead = np.arange(ie, n)[P[ie:] < j + 0.9]
+            if len(lead) < 3:
+                continue
+            # tiny pen-down dots the model leaves at a word start are dropped, not measured
+            ends = np.where(pts[:, 2] == 1.)[0]
+            for s0, s1 in zip(np.r_[0, ends[:-1] + 1], ends):
+                if s1 >= ie and s0 <= lead[-1] and s1 - s0 < 6 and max(np.ptp(pts[s0:s1 + 1, 0]), np.ptp(pts[s0:s1 + 1, 1])) < 0.2 * xh:
+                    keep[s0:s1 + 1] = False
+            lead = lead[keep[lead]]
+            if len(lead) < 3:
+                continue
+            x_e = float(pts[lead, 0].min())
+            if os.environ.get("GLYPH_LOG"):
+                print("M", j, ie, round(x_e, 2), [round(float(v), 2) for v in pts[ie:ie + 4, 0]], file=sys.stderr)
+            nb = np.where(np.abs(pts[:, 0] - x_e) < 4 * adv)[0]
+            base = float(np.percentile(pts[nb, 1], 85))
+            new = G.draw("M", mode, x_e, base, xh, rng)
+            mw = max(float(s_[:, 0].max()) for s_ in new) - x_e
+            body = lead[P[lead] >= j + 0.1]
+            body_x = float(np.percentile(pts[body, 0], 3)) if len(body) >= 3 else x_e
+            entry = lead[(P[lead] < j + 0.1) & (pts[lead, 0] < body_x - 0.1 * xh)]
+            keep[entry] = False                     # the model's entry stroke into a word start
+            if os.environ.get("GLYPH_LOG"):
+                print("Mshift", round(x_e, 2), round(mw, 2), round(body_x, 2), round(xh, 2), len(entry), file=sys.stderr)
+            sh = max(0.0, x_e + mw + 0.2 * xh - body_x)
+            pts[ie:, 0] += sh
+            for k_, v_ in inserts.items():             # letters already redrawn further along move too
+                if k_ >= ie:
+                    for s_ in v_:
+                        s_[:, 0] += sh
+            inserts[ie] = inserts.get(ie, []) + new
     starts_at = getattr(_place, "word_starts", [])
     strokes, cur = [], []
     for i in range(n):
@@ -252,12 +297,12 @@ def plain_r_strokes(pts, pos, text, rng=None):
     return glyph_strokes(pts, pos, text, "print", rng)
 
 
-def to_strokes(coords: np.ndarray, pos=None, text: str = "", glyphs: str = "cursive") -> list[np.ndarray]:
+def to_strokes(coords: np.ndarray, pos=None, text: str = "", glyphs: str = "cursive", m_at=()) -> list[np.ndarray]:
     """Pen offsets -> absolute strokes, deskewed, left-aligned, median y at 0. With the
     attention positions and the text, every r is redrawn plain (plain_r_strokes)."""
     pts = coords.copy()
     pts[:, :2] = np.cumsum(pts[:, :2], axis=0)
-    strokes = glyph_strokes(pts, pos, text, glyphs)
+    strokes = glyph_strokes(pts, pos, text, glyphs, m_at=m_at)
     if len(strokes) > 1 and len(strokes[0]) == 1:
         strokes = strokes[1:]
     if not strokes:
@@ -334,11 +379,23 @@ class RNNEngine:
 
     def strokes(self, text: str, seed: int = 0, bias: float | None = None, style="default"):
         self._start()
-        q = {"text": text, "bias": self.bias if bias is None else bias,
+        sent, m_at = text, []
+        if self.glyphs != "off":
+            out = []
+            for i, c in enumerate(text):
+                if c == "M" and (i == 0 or text[i - 1] == " ") and i + 1 < len(text) and text[i + 1].isalpha():
+                    m_at.append(len(out))          # index in the sent text of the letter after M
+                    continue
+                out.append(c)
+            sent = "".join(out)
+        q = {"text": sent, "bias": self.bias if bias is None else bias,
              "style": self.style if style == "default" else style, "seed": int(seed)}
         self.proc.stdin.write(json.dumps(q) + "\n")
         r = json.loads(self.proc.stdout.readline())
-        return to_strokes(np.array(r["coords"], dtype=np.float64), r.get("pos"), r.get("text", text), self.glyphs), r["ok"]
+        rt = r.get("text", sent)
+        if rt != sent:
+            m_at = []                              # characters were dropped: indices no longer match
+        return to_strokes(np.array(r["coords"], dtype=np.float64), r.get("pos"), rt, self.glyphs, m_at), r["ok"]
 
     def generate(self, texts: list[str], style_img=None, seed: int = 0) -> list[np.ndarray]:
         out = []

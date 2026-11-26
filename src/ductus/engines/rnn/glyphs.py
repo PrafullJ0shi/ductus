@@ -23,7 +23,9 @@ F_HIS = [(0.00, 0.00), (0.18, -0.50), (0.36, -1.05), (0.50, -1.45), (0.54, -1.68
 R_PRINT = [(0.00, -1.00), (0.00, 0.00), (0.02, -0.55), (0.14, -0.86), (0.32, -0.99), (0.52, -0.84)]
 F_PRINT = [(0.62, -1.62), (0.40, -1.72), (0.22, -1.55), (0.20, -1.00), (0.20, 0.00)]
 
-TEMPLATES = {"cursive": {"r": R_HIS, "f": F_HIS}, "print": {"r": R_PRINT, "f": F_PRINT}}
+# capital M with the middle V reaching well down, so it never reads as H (x-height units)
+M_CAP = [(0.00, 0.00), (0.03, -1.45), (0.46, -0.42), (0.88, -1.45), (0.93, 0.00)]
+TEMPLATES = {"cursive": {"r": R_HIS, "f": F_HIS, "M": M_CAP}, "print": {"r": R_PRINT, "f": F_PRINT, "M": M_CAP}}
 F_PRINT_BAR = [(0.00, -0.92), (0.50, -0.95)]
 
 
@@ -39,7 +41,7 @@ def draw(ch: str, mode: str, x0: float, baseline: float, h: float, rng) -> list[
     shear = rng.normal(0.06, 0.04)                       # a little forward slant, varied
     t[:, 0] -= shear * t[:, 1]
     t += rng.normal(0, 0.018, t.shape)
-    pts = _smooth(t)
+    pts = _corners(t) if ch == "M" else _smooth(t)
     pts[:, 0] = pts[:, 0] * h + x0
     pts[:, 1] = pts[:, 1] * h * rng.uniform(0.95, 1.05) + baseline
     out = [pts]
@@ -47,6 +49,17 @@ def draw(ch: str, mode: str, x0: float, baseline: float, h: float, rng) -> list[
         b = np.array(F_PRINT_BAR) + rng.normal(0, 0.02, (2, 2))
         out.append(np.c_[b[:, 0] * h + x0, b[:, 1] * h + baseline])
     return out
+
+
+def _corners(t: np.ndarray, per: int = 12) -> np.ndarray:
+    """Straight strokes with slightly softened corners (a pen does not turn on a point)."""
+    seg = [t[i] + (t[i + 1] - t[i]) * u[:, None] for i in range(len(t) - 1)
+           for u in [np.linspace(0, 1, per, endpoint=i == len(t) - 2)]]
+    p = np.vstack(seg)
+    k = np.array([0.25, 0.5, 0.25])
+    q = p.copy()
+    q[1:-1] = k[0] * p[:-2] + k[1] * p[1:-1] + k[2] * p[2:]
+    return q
 
 
 def _smooth(t: np.ndarray, n: int = 48) -> np.ndarray:

@@ -216,6 +216,12 @@ class Synthesizer:
                                 err = e_line     # isolated word OCR cannot read the cursive r/f; the line read can
                         else:
                             err = 0.0
+                        if "M" in w and read_words is not None:
+                            # capital M that reads as H ("Hean deviation"): write it again
+                            reads = [read_words[k], word_reads[n] if word_reads else ""]
+                            if any(x and "H" in x and x.count("M") < w.count("M") for x in reads):
+                                err = max(err, 0.6)
+                                self.stats["m_as_h"] = self.stats.get("m_as_h", 0) + 1
                         lo, hi = (0.55, 1.9) if self.strict and not self.loose else (0.4, 2.4)
                         if not (lo <= ratio <= hi) and len(w) >= 3:
                             err = max(err, 1.0)          # the split put this word in the wrong span
