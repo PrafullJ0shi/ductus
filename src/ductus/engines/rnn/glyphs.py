@@ -28,27 +28,39 @@ M_CAP = [(0.00, 0.00), (0.03, -1.45), (0.46, -0.42), (0.88, -1.45), (0.93, 0.00)
 # capital R: straight stem, round bowl, straight leg (the model's R often reads as P)
 R_CAP = [(0.00, 0.00), (0.00, -1.45), (0.30, -1.46), (0.50, -1.38), (0.60, -1.22), (0.57, -1.03),
          (0.42, -0.90), (0.05, -0.84), (0.66, 0.00)]
-TEMPLATES = {"cursive": {"r": R_HIS, "f": F_HIS, "M": M_CAP, "R": R_CAP},
-             "print": {"r": R_PRINT, "f": F_PRINT, "M": M_CAP, "R": R_CAP}}
+# capitals the model writes unclearly ("Hi" read as "tli", "Exam" as "txam", "Note" as "rote");
+# several strokes are given as a list of strokes
+N_CAP = [(0.00, 0.00), (0.00, -1.45), (0.72, 0.00), (0.72, -1.45)]
+H_CAP = [[(0.00, -1.45), (0.00, 0.00)], [(0.74, -1.45), (0.74, 0.00)], [(0.00, -0.75), (0.74, -0.77)]]
+E_CAP = [[(0.62, -1.45), (0.00, -1.45), (0.00, 0.00), (0.66, 0.00)], [(0.00, -0.74), (0.50, -0.74)]]
+CAPS = {"M": M_CAP, "R": R_CAP, "N": N_CAP, "H": H_CAP, "E": E_CAP}
+TEMPLATES = {"cursive": {"r": R_HIS, "f": F_HIS, **CAPS}, "print": {"r": R_PRINT, "f": F_PRINT, **CAPS}}
 F_PRINT_BAR = [(0.00, -0.92), (0.50, -0.95)]
 
 
 def width(ch: str, mode: str) -> float:
-    t = np.array(TEMPLATES[mode][ch])
+    tpl = TEMPLATES[mode][ch]
+    t = np.array([q for part in (tpl if isinstance(tpl[0], list) else [tpl]) for q in part])
     return float(t[:, 0].max() - t[:, 0].min())
 
 
 def draw(ch: str, mode: str, x0: float, baseline: float, h: float, rng) -> list[np.ndarray]:
     """Strokes of one letter, x0 = left edge, scaled by the x-height h."""
-    t = np.array(TEMPLATES[mode][ch], dtype=np.float64)
-    t[:, 0] *= rng.uniform(0.92, 1.08)
+    tpl = TEMPLATES[mode][ch]
+    parts = tpl if isinstance(tpl[0], list) else [tpl]
+    sx = rng.uniform(0.92, 1.08)
     shear = rng.normal(0.06, 0.04)                       # a little forward slant, varied
-    t[:, 0] -= shear * t[:, 1]
-    t += rng.normal(0, 0.018, t.shape)
-    pts = _corners(t) if ch in "MR" else _smooth(t)
-    pts[:, 0] = pts[:, 0] * h + x0
-    pts[:, 1] = pts[:, 1] * h * rng.uniform(0.95, 1.05) + baseline
-    out = [pts]
+    sy = rng.uniform(0.95, 1.05)
+    out = []
+    for part in parts:
+        t = np.array(part, dtype=np.float64)
+        t[:, 0] *= sx
+        t[:, 0] -= shear * t[:, 1]
+        t += rng.normal(0, 0.018, t.shape)
+        pts = _corners(t) if ch in CAPS else _smooth(t)
+        pts[:, 0] = pts[:, 0] * h + x0
+        pts[:, 1] = pts[:, 1] * h * sy + baseline
+        out.append(pts)
     if mode == "print" and ch == "f":
         b = np.array(F_PRINT_BAR) + rng.normal(0, 0.02, (2, 2))
         out.append(np.c_[b[:, 0] * h + x0, b[:, 1] * h + baseline])

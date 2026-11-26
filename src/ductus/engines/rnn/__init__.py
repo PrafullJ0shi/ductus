@@ -94,7 +94,7 @@ def glyph_strokes(pts: np.ndarray, pos, text: str, mode: str = "cursive", rng=No
     keep = np.ones(n, bool)
     inserts = {}
     done_rf = 0
-    if mode == "off" or pos is None or len(pos) != n or (not any(c in text for c in "rfMR") and not m_at):
+    if mode == "off" or pos is None or len(pos) != n or (not any(c in text for c in "rfMRHEN") and not m_at):
         inserts = {}
     else:
         P = np.asarray(pos)
@@ -102,7 +102,7 @@ def glyph_strokes(pts: np.ndarray, pos, text: str, mode: str = "cursive", rng=No
         xh = 0.86 * adv
         taken = np.zeros(n, bool)
         for ci, ch in enumerate(text):
-            cap = (placeholder and ch in "MR" and (ci == 0 or text[ci - 1] == " ")
+            cap = (placeholder and ch in "MRHEN" and (ci == 0 or text[ci - 1] == " ")
                    and ci + 1 < len(text) and text[ci + 1].isalpha())
             if ch not in "rf" and not cap:
                 continue
@@ -283,7 +283,7 @@ def glyph_strokes(pts: np.ndarray, pos, text: str, mode: str = "cursive", rng=No
                     for s_ in v_:
                         s_[:, 0] += sh
             inserts[ie] = inserts.get(ie, []) + new
-    n_caps = sum(1 for i, c in enumerate(text) if placeholder and c in "MR" and (i == 0 or text[i - 1] == " ")
+    n_caps = sum(1 for i, c in enumerate(text) if placeholder and c in "MRHEN" and (i == 0 or text[i - 1] == " ")
                  and i + 1 < len(text) and text[i + 1].isalpha())
     glyph_strokes.missing = (sum(text.count(c) for c in "rf") + n_caps - done_rf) if mode != "off" else 0
     starts_at = getattr(_place, "word_starts", [])
@@ -326,6 +326,17 @@ def to_strokes(coords: np.ndarray, pos=None, text: str = "", glyphs: str = "curs
     attention positions and the text, every r is redrawn plain (plain_r_strokes)."""
     pts = coords.copy()
     pts[:, :2] = np.cumsum(pts[:, :2], axis=0)
+    if pos is not None and len(pos) == len(pts) and text:
+        # the model sometimes writes a short text again after its end ("AI. AI. A"): stop
+        # where the attention has moved past the last character
+        Pa = np.asarray(pos, dtype=np.float64)
+        past = np.where(Pa > len(text.rstrip()) + 0.6)[0]
+        past = past[past > 3]
+        if len(past):
+            cut = int(past[0])
+            pts, pos = pts[:cut], list(Pa[:cut])
+            if len(pts):
+                pts[-1, 2] = 1.
     strokes = glyph_strokes(pts, pos, text, glyphs, m_at=m_at, placeholder=placeholder)
     if len(strokes) > 1 and len(strokes[0]) == 1:
         strokes = strokes[1:]
@@ -407,13 +418,13 @@ class RNNEngine:
         sent, m_at = text, []
         if self.glyphs != "off" and self.placeholder:
             # r, f and a word-initial M or R are written as a tall l (easy to find), then replaced
-            sent = "".join("l" if (c in "rf" or (c in "MR" and (i == 0 or text[i - 1] == " ")
+            sent = "".join("l" if (c in "rf" or (c in "MRHEN" and (i == 0 or text[i - 1] == " ")
                                                   and i + 1 < len(text) and text[i + 1].isalpha())) else c
                            for i, c in enumerate(text))
         elif self.glyphs != "off":
             out = []
             for i, c in enumerate(text):
-                if c in "MR" and (i == 0 or text[i - 1] == " ") and i + 1 < len(text) and text[i + 1].isalpha():
+                if c in "MRHEN" and (i == 0 or text[i - 1] == " ") and i + 1 < len(text) and text[i + 1].isalpha():
                     m_at.append((len(out), c))     # index in the sent text of the letter after the capital
                     continue
                 out.append(c)
