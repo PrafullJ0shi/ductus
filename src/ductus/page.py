@@ -136,7 +136,7 @@ class Writer:
             if not R.available():
                 raise RuntimeError("--engine rnn needs the RNN model; see src/ductus/engines/rnn/__init__.py")
             eng = self.rnn(o.rnn_style, o.rnn_bias); eng.glyphs = o.glyphs
-            return eng, self.engine_lazy(), 6 if o.glyphs == "cursive" else 4   # then diffusion for what still fails
+            return eng, self.engine_lazy(), 8 if o.glyphs == "cursive" else 4   # then diffusion for what still fails
         if mode == "auto" and R.available():
             eng = self.rnn(o.rnn_style, o.rnn_bias); eng.glyphs = o.glyphs
             return self.engine, eng, 2
@@ -362,7 +362,7 @@ def write_lines(writer: "Writer", lines: list[str], o: Options) -> tuple[list[np
     return out, stats
 
 
-CACHE_VERSION = 22  # bump when word synthesis changes
+CACHE_VERSION = 23  # bump when word synthesis changes
 
 
 def _cache_dir():

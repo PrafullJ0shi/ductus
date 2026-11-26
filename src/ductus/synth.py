@@ -237,6 +237,10 @@ class Synthesizer:
                             if miss > (1 if len(core) > 4 else 0) or len(rd) > len(w) + 1:
                                 err = max(err, 0.5)
                                 self.stats["core_rejects"] = self.stats.get("core_rejects", 0) + 1
+                        if (w[:1].isupper() and not w.isupper() and read_words is not None and word_reads
+                                and read_words[k][:1].islower() and word_reads[n].lstrip("#&*.,'\" ")[:1].islower()):
+                            err = max(err, 0.5)          # the capital came out as a small letter ("Note" -> "note")
+                            self.stats["cap_misread"] = self.stats.get("cap_misread", 0) + 1
                         for cap_, wrong_ in (("M", "H"), ("R", "P")):
                             if cap_ in w and read_words is not None:
                                 # capital M that reads as H ("Hean"), R as P ("Pange"): write it again
