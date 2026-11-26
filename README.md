@@ -33,6 +33,9 @@ add the habits of a person writing on paper.
 - **Human habits.** Baseline drift, wandering margins, uneven spacing, size growth toward the
   end of a page, squeezed words at line ends, the odd crossed-out slip, retraced words,
   smudges. Each detail is listed with its source in [docs/REALISM.md](docs/REALISM.md).
+- **Plain, readable letters.** The default hand is plain print-like writing. A letter-shape
+  check re-writes words whose f, r or ascenders come out looped or calligraphic, and every
+  word must pass an OCR read-back, so messiness stays in spacing, baseline and shape.
 - **Real ink.** Ballpoint, gel, fountain pen or pencil, with speed-dependent density, blobs,
   skips, rough edges and darker overlaps ([docs/INK.md](docs/INK.md)).
 - **Paper and camera.** White A4 (default), ruled or 5 mm grid. `--photo a4` (a loose sheet
@@ -126,6 +129,8 @@ ductus write notes.txt -o out/mine --style styles/my-hand --look profile --mode 
 | `--paper` | `white` (default), `ruled`, `grid` (default with `--photo notebook`) |
 | `--photo` | `a4` (default when given alone), `notebook` |
 | `--ink-model` | `realism` (default), `pens`, `flat` |
+| `--legibility` | `strict` (default; every word must read back), `loose` |
+| `--allow-loops` | keep looped f / stylish r (default re-writes them plainly) |
 | `--humanize` | rate of the human-error pass, `0` to `1` (default `0.5`; off for `neat`) |
 
 Full reference: [docs/CLI.md](docs/CLI.md). Markup cheat sheet: [docs/CLI.md#markup](docs/CLI.md#markup).

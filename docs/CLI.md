@@ -21,13 +21,15 @@ ductus write INPUT -o OUT [options]
 | `INPUT` | `-` | text file with optional markup, or `-` for stdin |
 | `--text` | | inline text instead of a file |
 | `-o, --out` | `page` | output path without extension; writes `OUT.png` (or `OUT-1.png`, ...) and `OUT.pdf` |
-| `--style` | `upright` for neat, else `quick` | a preset (`upright`, `slant`, `quick`, `round`, `loose`), a line image, or a profile folder from `ductus style` |
+| `--style` | `upright` | a preset (`upright`, `slant`, `quick`, `round`, `loose`), a line image, or a profile folder from `ductus style` |
 | `--look` | `natural` | `neat`, `natural`, `messy`, or `profile` (use the measured habits of a profile) |
 | `--mode` | `plain` | `plain`, `notes` (auto-detects `Term: meaning`), `maths` (`= ...` lines align) |
 | `--paper` | `white` | `white` A4, `ruled`, or `grid` (5 mm) |
 | `--photo [a4\|notebook]` | off | phone photo of the page. `a4` (default when the flag is given alone): one loose white sheet on a desk, slight corner/edge lift, contact shadow. `notebook`: spiral-bound grid pad, pages below, curl at the binding. Both use the same calibrated camera pipeline |
 | `--ink-model` | `realism` | `realism` (calibrated striations, skips, blobs, overlap darkening), `pens` (simpler model), `flat` |
 | `--humanize` | `0.5` | rate of the human-error pass on the laid-out page (size and baseline drift, retouched letters); ignored for `--look neat` |
+| `--legibility` | `strict` | `strict`: every word must pass both the line and the word OCR read-back, or it is written again (messiness goes into spacing, baseline and shape, never garbled letters). `loose`: only catch wrong or missing words |
+| `--allow-loops` | off | keep looped f, stylish r and looped ascenders; by default such words are written again until the plain form appears (`letterforms.py`) |
 | `--no-cache` | off | generate words afresh instead of reusing `~/.cache/ductus/words` |
 | `--ink` | `#1c2a6e` | ink colour |
 | `--pen` | `1.0` | stroke weight multiplier |
