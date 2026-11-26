@@ -66,6 +66,17 @@ def _drop_specks(sub: np.ndarray, xh: float) -> np.ndarray:
         out[lab == i] = 0
     return out
 
+
+def _lcs(a, b) -> int:
+    """Length of the longest common subsequence."""
+    prev = [0] * (len(b) + 1)
+    for x in a:
+        cur = [0]
+        for j, y in enumerate(b):
+            cur.append(prev[j] + 1 if x == y else max(prev[j + 1], cur[j]))
+        prev = cur
+    return prev[-1]
+
 @dataclass
 class WordImage:
     text: str
@@ -216,12 +227,23 @@ class Synthesizer:
                                 err = e_line     # isolated word OCR cannot read the cursive r/f; the line read can
                         else:
                             err = 0.0
-                        if "M" in w and read_words is not None:
-                            # capital M that reads as H ("Hean deviation"): write it again
-                            reads = [read_words[k], word_reads[n] if word_reads else ""]
-                            if any(x and "H" in x and x.count("M") < w.count("M") for x in reads):
-                                err = max(err, 0.6)
-                                self.stats["m_as_h"] = self.stats.get("m_as_h", 0) + 1
+                        if (self._glyph_mode == "cursive" and word_reads and w.isalpha()
+                                and any(c in "rf" for c in w.lower())):
+                            # the redraw must not eat a neighbour ("of" -> "cf"): the other letters
+                            # have to be in the single-word read, in order
+                            core = [c for c in w.lower() if c not in "rf"]
+                            rd = re.sub(r"[^a-z]", "", word_reads[n].lower())
+                            miss = len(core) - _lcs(core, rd)
+                            if miss > (1 if len(core) > 4 else 0) or len(rd) > len(w) + 1:
+                                err = max(err, 0.5)
+                                self.stats["core_rejects"] = self.stats.get("core_rejects", 0) + 1
+                        for cap_, wrong_ in (("M", "H"), ("R", "P")):
+                            if cap_ in w and read_words is not None:
+                                # capital M that reads as H ("Hean"), R as P ("Pange"): write it again
+                                reads = [read_words[k], word_reads[n] if word_reads else ""]
+                                if any(x and wrong_ in x and x.count(cap_) < w.count(cap_) for x in reads):
+                                    err = max(err, 0.6)
+                                    self.stats["cap_misread"] = self.stats.get("cap_misread", 0) + 1
                         lo, hi = (0.55, 1.9) if self.strict and not self.loose else (0.4, 2.4)
                         if not (lo <= ratio <= hi) and len(w) >= 3:
                             err = max(err, 1.0)          # the split put this word in the wrong span

@@ -25,7 +25,11 @@ F_PRINT = [(0.62, -1.62), (0.40, -1.72), (0.22, -1.55), (0.20, -1.00), (0.20, 0.
 
 # capital M with the middle V reaching well down, so it never reads as H (x-height units)
 M_CAP = [(0.00, 0.00), (0.03, -1.45), (0.46, -0.42), (0.88, -1.45), (0.93, 0.00)]
-TEMPLATES = {"cursive": {"r": R_HIS, "f": F_HIS, "M": M_CAP}, "print": {"r": R_PRINT, "f": F_PRINT, "M": M_CAP}}
+# capital R: straight stem, round bowl, straight leg (the model's R often reads as P)
+R_CAP = [(0.00, 0.00), (0.00, -1.45), (0.30, -1.46), (0.50, -1.38), (0.60, -1.22), (0.57, -1.03),
+         (0.42, -0.90), (0.05, -0.84), (0.66, 0.00)]
+TEMPLATES = {"cursive": {"r": R_HIS, "f": F_HIS, "M": M_CAP, "R": R_CAP},
+             "print": {"r": R_PRINT, "f": F_PRINT, "M": M_CAP, "R": R_CAP}}
 F_PRINT_BAR = [(0.00, -0.92), (0.50, -0.95)]
 
 
@@ -41,7 +45,7 @@ def draw(ch: str, mode: str, x0: float, baseline: float, h: float, rng) -> list[
     shear = rng.normal(0.06, 0.04)                       # a little forward slant, varied
     t[:, 0] -= shear * t[:, 1]
     t += rng.normal(0, 0.018, t.shape)
-    pts = _corners(t) if ch == "M" else _smooth(t)
+    pts = _corners(t) if ch in "MR" else _smooth(t)
     pts[:, 0] = pts[:, 0] * h + x0
     pts[:, 1] = pts[:, 1] * h * rng.uniform(0.95, 1.05) + baseline
     out = [pts]

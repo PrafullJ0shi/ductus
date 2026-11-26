@@ -68,8 +68,9 @@ def _place(G, ch, mode, x_left, base, h, rng, text, ci, old_right):
     extra room is added there: the word split and the page layout both need a clear gap."""
     first = ci == 0 or text[ci - 1] == " "
     last = ci + 1 >= len(text) or text[ci + 1] == " "
-    if first and mode == "cursive":
+    if first:
         _place.word_starts = getattr(_place, "word_starts", []) + [x_left]
+    if first and mode == "cursive":
         x_left += 0.35 * h
     new = G.draw(ch, mode, x_left, base, h, rng)
     right_new = max(float(s_[:, 0].max()) for s_ in new)
@@ -79,7 +80,8 @@ def _place(G, ch, mode, x_left, base, h, rng, text, ci, old_right):
     return new, max(dx, -0.2 * h)
 
 
-def glyph_strokes(pts: np.ndarray, pos, text: str, mode: str = "cursive", rng=None, m_at=()) -> list[np.ndarray]:
+def glyph_strokes(pts: np.ndarray, pos, text: str, mode: str = "cursive", rng=None, m_at=(),
+                  placeholder: bool = False) -> list[np.ndarray]:
     """Absolute points (x, y down, pen-up flag) -> strokes, with every lowercase r and f redrawn
     from the templates in glyphs.py ("cursive": the target hand's school-cursive r and looped f;
     "print": plain print forms; "off": unchanged). Each letter's own points are found from the
@@ -91,7 +93,8 @@ def glyph_strokes(pts: np.ndarray, pos, text: str, mode: str = "cursive", rng=No
     n = len(pts)
     keep = np.ones(n, bool)
     inserts = {}
-    if mode == "off" or pos is None or len(pos) != n or (not any(c in text for c in "rf") and not m_at):
+    done_rf = 0
+    if mode == "off" or pos is None or len(pos) != n or (not any(c in text for c in "rfMR") and not m_at):
         inserts = {}
     else:
         P = np.asarray(pos)
@@ -99,20 +102,28 @@ def glyph_strokes(pts: np.ndarray, pos, text: str, mode: str = "cursive", rng=No
         xh = 0.86 * adv
         taken = np.zeros(n, bool)
         for ci, ch in enumerate(text):
-            if ch not in "rf":
+            cap = (placeholder and ch in "MR" and (ci == 0 or text[ci - 1] == " ")
+                   and ci + 1 < len(text) and text[ci + 1].isalpha())
+            if ch not in "rf" and not cap:
                 continue
-            win = np.where((P >= ci - (0.1 if ch == "r" else 0.7)) & (P < ci + 1.45) & ~taken)[0]
+            kind = "f" if (ch == "f" or placeholder) else "r"   # placeholder: the model wrote a tall l here
+            last_ = ci + 1 >= len(text) or not text[ci + 1].isalpha()
+            hi_w = 1.9 if (placeholder and last_) else 1.45   # attention runs into the space after a word
+            lo_w = 1.5 if (placeholder and ci == 0) else (0.1 if kind == "r" else 0.7)   # line start: odd attention
+            win = np.where((P >= ci - lo_w) & (P < ci + hi_w) & ~taken)[0]
             if len(win) < 4:
                 continue
-            runs = np.split(win, np.where(np.diff(win) > 1)[0] + 1)
+            runs = np.split(win, np.where(np.diff(win) > (5 if placeholder else 1))[0] + 1)   # a pen lift can carry odd attention
             i0, i1 = max(runs, key=len)[[0, -1]]
             seg = pts[i0:i1 + 1]
             y = seg[:, 1]
-            cands = _downstrokes(seg, P[i0:i1 + 1], ci, xh, 0.4 if ch == "r" else 1.05, ch == "r",
-                                 *((0.35, 1.35) if ch == "r" else (-0.3, 1.0)))
+            cands = _downstrokes(seg, P[i0:i1 + 1], ci, xh, 0.4 if kind == "r" else 1.05, kind == "r",
+                                 *((0.35, 1.35) if kind == "r" else (-0.3, 1.6 if (placeholder and last_) else 1.0)))
+            if os.environ.get("GLYPH_LOG"):
+                print("cand", ci, ch, [(round(c_[0]), c_[1], c_[2]) for c_ in cands], file=sys.stderr)
             best, ist, ib = max(cands) if cands else (0.0, 0, 0)
             if best < 2:
-                if ch != "r":
+                if kind != "r":
                     continue
                 # no clear stem: take the points attended to as this r, if they look like one letter
                 own = np.where((P >= ci + 0.35) & (P < ci + 1.35) & ~taken & keep)[0]
@@ -130,9 +141,10 @@ def glyph_strokes(pts: np.ndarray, pos, text: str, mode: str = "cursive", rng=No
                     pts[a1 + 1:, 0] += dx
                 keep[a0:a1 + 1] = False; taken[a0:a1 + 1] = True
                 inserts[a0] = new
+                done_rf += 1
                 continue
             xs, bottom = float(seg[ib, 0]), float(seg[ib, 1])
-            if ch == "r":
+            if kind == "r":
                 ie, ytop = ib, bottom          # shoulder end, as for the print redraw
                 for q in range(ib + 1, len(seg)):
                     if seg[q - 1, 2] == 1. or seg[q, 0] > xs + 0.75 * xh:
@@ -151,7 +163,7 @@ def glyph_strokes(pts: np.ndarray, pos, text: str, mode: str = "cursive", rng=No
                 if mode == "cursive":              # the cursive r starts with its own lead-in
                     j0 = ist
                     while j0 > 0 and seg[j0 - 1, 1] > seg[j0, 1] - 0.01 * xh and seg[j0 - 1, 2] != 1. \
-                            and seg[j0 - 1, 0] > xs - 0.6 * xh:
+                            and seg[j0 - 1, 0] > xs - 0.6 * xh and P[i0 + j0 - 1] >= ci - 0.05:
                         j0 -= 1
                 x_left = float(seg[j0:ie + 1, 0].min())
             else:
@@ -159,13 +171,16 @@ def glyph_strokes(pts: np.ndarray, pos, text: str, mode: str = "cursive", rng=No
                 # stays within the letter (lower loop, exit), until a pen lift or the next letter
                 j0 = ist
                 while j0 > 0 and seg[j0 - 1, 1] >= seg[j0, 1] - 0.01 * xh and seg[j0 - 1, 2] != 1. \
-                        and seg[j0 - 1, 0] > xs - 0.9 * xh:
+                        and seg[j0 - 1, 0] > xs - 0.9 * xh and P[i0 + j0 - 1] >= ci - 0.05:
                     j0 -= 1
-                while j0 > 0 and seg[j0 - 1, 1] > seg[j0, 1] and seg[j0 - 1, 2] != 1. and seg[j0 - 1, 0] > xs - 0.9 * xh:
+                ytop_s = float(seg[ist, 1])
+                while (j0 > 0 and seg[j0 - 1, 1] > seg[j0, 1] and seg[j0 - 1, 2] != 1. and seg[j0 - 1, 0] > xs - 0.6 * xh
+                       and P[i0 + j0 - 1] >= ci - 0.05
+                       and (seg[j0 - 1, 1] < ytop_s + 0.45 * xh or abs(seg[j0 - 1, 0] - xs) < 0.25 * xh)):
                     j0 -= 1                    # the upstroke into the top of the f
                 ytop_f = float(seg[ist, 1])
                 while j0 > 0 and seg[j0 - 1, 2] != 1. and seg[j0 - 1, 1] < ytop_f + 0.5 * xh \
-                        and abs(seg[j0 - 1, 0] - xs) < 0.9 * xh:
+                        and abs(seg[j0 - 1, 0] - xs) < 0.9 * xh and P[i0 + j0 - 1] >= ci - 0.05:
                     j0 -= 1                    # the hook at the top of a print f
                 ie = ib
                 for q in range(ib + 1, len(seg)):
@@ -183,7 +198,7 @@ def glyph_strokes(pts: np.ndarray, pos, text: str, mode: str = "cursive", rng=No
                 # a crossbar drawn later as its own short stroke goes too
                 ends = np.where(pts[:, 2] == 1.)[0]
                 starts = np.r_[0, ends[:-1] + 1]
-                for s0, s1 in zip(starts, ends):
+                for s0, s1 in zip(starts, ends) if not placeholder else ():
                     if s0 <= i0 + ie or taken[s0]:
                         continue
                     S = pts[s0:s1 + 1]
@@ -199,12 +214,16 @@ def glyph_strokes(pts: np.ndarray, pos, text: str, mode: str = "cursive", rng=No
                             u += 1
                         keep[s0:s0 + u] = False; taken[s0:s0 + u] = True
             a0, a1 = i0 + j0, i0 + ie
-            new, dx = _place(G, ch, mode, x_left, base, h, rng, text, ci, float(pts[a0:a1 + 1, 0].max()))
+            if cap:
+                h = max(h, 0.9 * xh)               # a capital never shrinks to a small letter
+            new, dx = _place(G, ch, "print" if cap else mode, x_left, base, h, rng, text, ci, float(pts[a0:a1 + 1, 0].max()))
             # leftovers of the model's own letter (a stem drawn before the region, a stray end)
-            lo_p, hi_p = (0.3, 1.3) if ch == "r" else (-0.2, 1.0)
+            lo_p, hi_p = (0.3, 1.15) if kind == "r" else (-0.05, 1.0)
             reach = 0.6
             if ci == 0 or text[ci - 1] == " ":    # only a space before it: nothing else to eat
                 lo_p, reach = -0.6, 1.6
+            if placeholder:                        # a single tall stroke: little is left over
+                reach = min(reach, 0.25)
             xr0, xr1 = float(pts[a0:a1 + 1, 0].min()), float(pts[a0:a1 + 1, 0].max())
             own = np.where((P >= ci + lo_p) & (P < ci + hi_p) & keep & ~taken
                            & (pts[:, 0] > xr0 - reach * xh) & (pts[:, 0] < xr1 + 0.2 * xh))[0]
@@ -215,6 +234,7 @@ def glyph_strokes(pts: np.ndarray, pos, text: str, mode: str = "cursive", rng=No
             keep[own] = False; taken[own] = True
             a0 = min(a0, int(own.min())) if len(own) else a0
             inserts[a0] = new
+            done_rf += 1
     if __import__("os").environ.get("GLYPH_LOG"):
         import sys as _s
         print(f"glyphs {mode}: {len(inserts)} of {sum(text.count(c) for c in 'rf')} r/f redrawn in {text!r}", file=_s.stderr)
@@ -222,8 +242,8 @@ def glyph_strokes(pts: np.ndarray, pos, text: str, mode: str = "cursive", rng=No
         P = np.asarray(pos)
         adv = max(1e-6, np.ptp(pts[:, 0])) / max(1, len(text.strip()))
         xh = 0.86 * adv
-        for j in m_at:
-            # a word-initial capital M was left out of the model's text (its M often reads as H):
+        for j, cap in m_at:
+            # a word-initial capital M or R was left out of the model's text (they often read as H, P):
             # draw the template M where the word starts and move the rest of the line right
             first = np.where(P >= j - 0.2)[0]
             if len(first) < 3:
@@ -248,7 +268,7 @@ def glyph_strokes(pts: np.ndarray, pos, text: str, mode: str = "cursive", rng=No
                 print("M", j, ie, round(x_e, 2), [round(float(v), 2) for v in pts[ie:ie + 4, 0]], file=sys.stderr)
             nb = np.where(np.abs(pts[:, 0] - x_e) < 4 * adv)[0]
             base = float(np.percentile(pts[nb, 1], 85))
-            new = G.draw("M", mode, x_e, base, xh, rng)
+            new = G.draw(cap, mode, x_e, base, xh, rng)
             mw = max(float(s_[:, 0].max()) for s_ in new) - x_e
             body = lead[P[lead] >= j + 0.1]
             body_x = float(np.percentile(pts[body, 0], 3)) if len(body) >= 3 else x_e
@@ -263,6 +283,9 @@ def glyph_strokes(pts: np.ndarray, pos, text: str, mode: str = "cursive", rng=No
                     for s_ in v_:
                         s_[:, 0] += sh
             inserts[ie] = inserts.get(ie, []) + new
+    n_caps = sum(1 for i, c in enumerate(text) if placeholder and c in "MR" and (i == 0 or text[i - 1] == " ")
+                 and i + 1 < len(text) and text[i + 1].isalpha())
+    glyph_strokes.missing = (sum(text.count(c) for c in "rf") + n_caps - done_rf) if mode != "off" else 0
     starts_at = getattr(_place, "word_starts", [])
     strokes, cur = [], []
     for i in range(n):
@@ -286,7 +309,7 @@ def glyph_strokes(pts: np.ndarray, pos, text: str, mode: str = "cursive", rng=No
             if id(s_) in news or max(np.ptp(s_[:, 0]), np.ptp(s_[:, 1])) > 0.3 * xh_:
                 return False
             cx = float(s_[:, 0].mean())
-            return any(xl - 1.2 * xh_ <= cx <= xl + 0.1 * xh_ for xl in starts_at)
+            return any(xl - 1.2 * xh_ <= cx <= xl + 0.5 * xh_ for xl in starts_at)
         strokes = [s_ for s_ in strokes if not stray(s_)]
     _place.word_starts = []
     return strokes
@@ -297,12 +320,13 @@ def plain_r_strokes(pts, pos, text, rng=None):
     return glyph_strokes(pts, pos, text, "print", rng)
 
 
-def to_strokes(coords: np.ndarray, pos=None, text: str = "", glyphs: str = "cursive", m_at=()) -> list[np.ndarray]:
+def to_strokes(coords: np.ndarray, pos=None, text: str = "", glyphs: str = "cursive", m_at=(),
+               placeholder: bool = False) -> list[np.ndarray]:
     """Pen offsets -> absolute strokes, deskewed, left-aligned, median y at 0. With the
     attention positions and the text, every r is redrawn plain (plain_r_strokes)."""
     pts = coords.copy()
     pts[:, :2] = np.cumsum(pts[:, :2], axis=0)
-    strokes = glyph_strokes(pts, pos, text, glyphs, m_at=m_at)
+    strokes = glyph_strokes(pts, pos, text, glyphs, m_at=m_at, placeholder=placeholder)
     if len(strokes) > 1 and len(strokes[0]) == 1:
         strokes = strokes[1:]
     if not strokes:
@@ -352,7 +376,8 @@ class RNNEngine:
     """Same interface as DiffBrushEngine: generate(texts, style_img, seed) -> line images."""
     name = "rnn"
     xh_per_cw = 0.86     # x-height per mean character advance (diffusion lines: 1.15)
-    glyphs = "cursive"       # r and f redraw: cursive (school cursive) | print | off
+    glyphs = "cursive"          # r and f redraw: cursive (school cursive) | print | off
+    placeholder = True          # write r/f as a tall l first, then replace it with the template
     per_word_xh = True   # RNN letter size drifts within a line: measure each word
 
     def __init__(self, style: int | None = 1, bias: float = 1.5, python: str | None = None):
@@ -380,27 +405,56 @@ class RNNEngine:
     def strokes(self, text: str, seed: int = 0, bias: float | None = None, style="default"):
         self._start()
         sent, m_at = text, []
-        if self.glyphs != "off":
+        if self.glyphs != "off" and self.placeholder:
+            # r, f and a word-initial M or R are written as a tall l (easy to find), then replaced
+            sent = "".join("l" if (c in "rf" or (c in "MR" and (i == 0 or text[i - 1] == " ")
+                                                  and i + 1 < len(text) and text[i + 1].isalpha())) else c
+                           for i, c in enumerate(text))
+        elif self.glyphs != "off":
             out = []
             for i, c in enumerate(text):
-                if c == "M" and (i == 0 or text[i - 1] == " ") and i + 1 < len(text) and text[i + 1].isalpha():
-                    m_at.append(len(out))          # index in the sent text of the letter after M
+                if c in "MR" and (i == 0 or text[i - 1] == " ") and i + 1 < len(text) and text[i + 1].isalpha():
+                    m_at.append((len(out), c))     # index in the sent text of the letter after the capital
                     continue
                 out.append(c)
             sent = "".join(out)
+        keep_text = text if self.placeholder else sent
         q = {"text": sent, "bias": self.bias if bias is None else bias,
              "style": self.style if style == "default" else style, "seed": int(seed)}
         self.proc.stdin.write(json.dumps(q) + "\n")
         r = json.loads(self.proc.stdout.readline())
         rt = r.get("text", sent)
+        ph = self.glyphs != "off" and self.placeholder
         if rt != sent:
             m_at = []                              # characters were dropped: indices no longer match
-        return to_strokes(np.array(r["coords"], dtype=np.float64), r.get("pos"), rt, self.glyphs, m_at), r["ok"]
+            if ph:                                 # cannot map the placeholders back: write it plainly
+                return self.strokes_plain(text, seed, bias, style)
+        else:
+            rt = keep_text
+        return to_strokes(np.array(r["coords"], dtype=np.float64), r.get("pos"), rt, self.glyphs, m_at,
+                          placeholder=ph), r["ok"]
+
+    def strokes_plain(self, text, seed, bias, style):
+        q = {"text": text, "bias": self.bias if bias is None else bias,
+             "style": self.style if style == "default" else style, "seed": int(seed)}
+        self.proc.stdin.write(json.dumps(q) + "\n")
+        r = json.loads(self.proc.stdout.readline())
+        return to_strokes(np.array(r["coords"], dtype=np.float64), r.get("pos"), r.get("text", text), "off"), r["ok"]
 
     def generate(self, texts: list[str], style_img=None, seed: int = 0) -> list[np.ndarray]:
         out = []
         for i, t in enumerate(texts):
-            st, _ = self.strokes(t, seed=seed * 101 + i, bias=self.bias + 0.3 * min(self.round, 4))
+            b = self.bias + 0.3 * min(self.round, 4)
+            for k in range(3):                     # a placeholder l left in place reads as l: try again
+                st, _ = self.strokes(t, seed=seed * 101 + i + 7919 * k, bias=b)
+                if not getattr(glyph_strokes, "missing", 0) or not self.placeholder or self.glyphs == "off":
+                    break
+            else:
+                self.placeholder = False           # last resort: redraw the model's own r and f
+                try:
+                    st, _ = self.strokes(t, seed=seed * 101 + i, bias=b)
+                finally:
+                    self.placeholder = True
             out.append(render_line(st, len(t)))
         return out
 
