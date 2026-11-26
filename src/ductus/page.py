@@ -72,7 +72,10 @@ class Options:
     verify: bool = True
     max_cer: float | None = None
     corrections: float | None = None
-    pen: float | None = None
+    pen: str | None = None           # pen preset (pens.PENS); None = blue ballpoint
+    tip: float | None = None         # nominal tip size in mm (0.5, 0.7, 1.0)
+    weight: float | None = None      # stroke weight multiplier on top of the pen
+    flat_ink: bool = False           # old flat ink model (kept for comparison)
     size: float | None = None        # x-height mm
     log: object = print
 
@@ -113,8 +116,8 @@ class Writer:
             look.ink = o.ink
         if o.corrections is not None:
             look.corrections = o.corrections
-        if o.pen:
-            look.pen = o.pen
+        if o.weight:
+            look.pen = o.weight
         if o.size:
             look.xh_mm = o.size
         rng = random.Random(o.seed)
@@ -138,7 +141,7 @@ class Writer:
             ref = refs[ci % len(refs)]
             syn = Synthesizer(self.engine, ref, self.reader if o.verify else None, max_cer=max_cer,
                               loose=personal, seed=o.seed * 1000 + ci * 37, log=o.log,
-                              strict=(o.look == "neat" and not personal), rounds=5 if o.look == "neat" else 3)
+                              strict=not personal, rounds=5 if o.look == "neat" else 4)
             words += syn.run([texts[i] for i in idx])
             for k in stats:
                 stats[k] += syn.stats.get(k, 0)
@@ -150,20 +153,29 @@ class Writer:
         from .paper import make_paper, phone_photo
         # pen width for drawn marks follows the measured stroke width of the writing
         from .segment import stroke_width
-        sw = float(np.median([stroke_width(w.alpha) for w in words[:40]])) * L.s
-        if not o.pen:
-            look.pen = _pen_match(look, words)
+        pen = _pen_for(o, look, prof)
+        sw = _stroke_px(look, pen, o, prof)
+        from .pens import nib_kernel
+        from .render import compose_physical, SS
+        nib = nib_kernel(sw * SS, pen)
         out = []
         nrng = np.random.default_rng(o.seed)
         for pi, pg in enumerate(pages):
-            ink = ink_coverage(pg, words, look.mess, look.pen, max(2.0, sw), nrng)
-            img = compose(ink, look.ink, look.pressure, nrng, make_paper(o.paper, seed=o.seed + pi))
+            paper = make_paper(o.paper, seed=o.seed + pi)
+            if o.flat_ink:
+                ink = ink_coverage(pg, words, look.mess, look.pen, sw, nrng)
+                img = compose(ink, look.ink, look.pressure, nrng, paper)
+            else:
+                shape, count = ink_coverage(pg, words, look.mess, look.pen, sw, nrng, nib=nib, with_count=True)
+                img = compose_physical(shape, count, pen, look.pressure, nrng, paper)
             if o.photo:
                 img = phone_photo(img, seed=o.seed + pi)
             out.append(img)
         stats.update(words=len(texts), seconds=round(time.time() - t0, 1), pages=len(pages),
                      ocr_mean_score=round(float(np.mean([w.score for w in words])), 3) if words else None,
                      pen_px=round(sw, 2), max_cer=max_cer)
+        look.ink = pen.ink
+        stats["pen"] = pen.name
         return Result(out, pages, words, look, stats)
 
 
@@ -176,6 +188,31 @@ def _match_reference(look: Look, refs, prof) -> None:
         look.gap_xh = float(np.median(gaps))
     sx = [h["stroke_xh"] for h in hs if "stroke_xh" in h]
     look._ref_stroke_xh = float(np.median(sx)) if sx else None
+    if prof and prof.get("look", {}).get("stroke_xh"):
+        look._ref_stroke_xh = float(prof["look"]["stroke_xh"])   # measured over all pages
+
+
+def _pen_for(o: Options, look: Look, prof: dict):
+    """The pen preset, with the ink colour of a personal profile (measured from the photos)
+    when the user did not pick a pen or colour."""
+    from .pens import get_pen
+    ink = o.ink or (look.ink if (prof and not o.pen and prof.get("look", {}).get("ink")) else None)
+    return get_pen(o.pen, o.tip, ink)
+
+
+def _stroke_px(look: Look, pen=None, o: Options | None = None, prof: dict | None = None) -> float:
+    """Line width in page pixels. A personal profile gives the measured width of the
+    writer's own pen (stroke / x-height times the page x-height) unless a pen or tip is
+    chosen; otherwise the pen preset's line width."""
+    from .layout import MM
+    ref = getattr(look, "_ref_stroke_xh", None)
+    if prof and ref and not (o and (o.pen or o.tip)):
+        mm = float(np.clip(ref * look.xh_mm, 0.25, 0.75))
+    elif pen is not None:
+        mm = pen.line_mm
+    else:
+        mm = look.pen_mm
+    return mm * MM
 
 
 def _pen_match(look: Look, words) -> float:
@@ -209,18 +246,27 @@ def write_lines(writer: "Writer", lines: list[str], o: Options) -> tuple[list[np
     max_cer = o.max_cer if o.max_cer is not None else (0.5 if prof else (0.15 if o.look == "neat" else 0.25))
     syn = Synthesizer(writer.engine, refs[0], writer.reader if o.verify else None, max_cer=max_cer,
                       loose=bool(prof), seed=o.seed, log=o.log,
-                      strict=(o.look == "neat" and not prof), rounds=5 if o.look == "neat" else 3)
+                      strict=not prof, rounds=5 if o.look == "neat" else 4)
     words = syn.run(flat)
     out, k = [], 0
     rng = np.random.default_rng(o.seed)
+    import cv2
+    from .pens import nib_kernel
+    from .render import compose_physical, SS
+    pen = _pen_for(o, look, prof)
+    sw = _stroke_px(look, pen, o, prof)
+    nib = nib_kernel(sw * SS, pen)
     for b, ws in zip(blocks, per_line):
         sub = words[k:k + len(ws)]
         k += len(ws)
         L = Layouter(sub, [w.deco for w in markup.block_words(b)], look, seed=o.seed + k, page_size=(5600, 520))
         pg = L.layout([b])[0]
-        sw = float(np.median([stroke_width(w.alpha) for w in sub])) * L.s
-        ink = ink_coverage(pg, sub, look.mess, _pen_match(look, words), max(2.0, sw), rng, size=(5600, 520))
-        img = compose(ink, "#000000", look.pressure, rng)[..., 0]
+        if o.flat_ink:
+            ink = ink_coverage(pg, sub, look.mess, look.pen, sw, rng, size=(5600, 520))
+            img = compose(ink, "#000000", look.pressure, rng)[..., 0]
+        else:
+            shape, count = ink_coverage(pg, sub, look.mess, look.pen, sw, rng, size=(5600, 520), nib=nib, with_count=True)
+            img = cv2.cvtColor(compose_physical(shape, count, pen, look.pressure, rng), cv2.COLOR_RGB2GRAY)
         bb = tight_bbox((255 - img.astype(np.float32)) / 255.0, 0.2)
         x0, y0, x1, y1 = bb
         out.append(img[max(0, y0 - 16):y1 + 16, max(0, x0 - 16):x1 + 16])

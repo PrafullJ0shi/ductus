@@ -29,7 +29,8 @@ def sharpen_ink(a: np.ndarray, mess: float) -> np.ndarray:
     return t * t * (3 - 2 * t)
 
 
-def word_layer(alpha: np.ndarray, scale: float, angle: float, mess: float, pen: float, baseline: float = 0.0):
+def word_layer(alpha: np.ndarray, scale: float, angle: float, mess: float, pen: float, baseline: float = 0.0,
+               stroke_px: float | None = None, nib: np.ndarray | None = None):
     """Scale + rotate one word crop. Returns (layer, anchor) where anchor maps the
     model-space origin (0,0) of the crop into layer coordinates."""
     s = scale * SS
@@ -37,6 +38,28 @@ def word_layer(alpha: np.ndarray, scale: float, angle: float, mess: float, pen: 
     big = cv2.resize(alpha.astype(np.float32), (max(1, int(round(w * s))), max(1, int(round(h * s)))),
                      interpolation=cv2.INTER_CUBIC)
     big = np.clip(big, 0, 1)
+    if stroke_px:
+        # re-ink along the centre line with one ballpoint width, so every word on the page
+        # has the same stroke weight whatever carrier it came from
+        from skimage.morphology import skeletonize
+        m = big > 0.42
+        if m.sum() > 8:
+            sk = skeletonize(m)
+            r = 0.5 * stroke_px * SS
+            pad = int(r) + 2
+            d = cv2.distanceTransform(np.pad((~sk).astype(np.uint8), pad, constant_values=1), cv2.DIST_L2, 5)
+            if nib is not None:
+                big = cv2.dilate(np.pad(sk, pad).astype(np.uint8), nib).astype(np.float32)
+                big = cv2.GaussianBlur(big, (0, 0), 0.5)
+            else:
+                big = np.clip(r + 0.5 - d, 0, 1)
+            # crop back to the original frame (the pad keeps round stroke ends)
+            big = big[pad:-pad, pad:-pad]
+            pad2 = int(0.25 * max(big.shape))
+            big = np.pad(big, pad2)
+            H, W = big.shape
+            M = cv2.getRotationMatrix2D((pad2, pad2 + baseline * s), angle, 1.0)
+            return cv2.warpAffine(big, M, (W, H), flags=cv2.INTER_LINEAR), (pad2, pad2)
     if pen != 1.0:
         k = int(round(abs(pen - 1.0) * s * 1.5))
         if k >= 1:
@@ -82,12 +105,17 @@ def draw_stroke(layer: np.ndarray, pts: np.ndarray, width: float, rng):
     np.maximum(layer, a, out=layer)
 
 
-def ink_coverage(page: Page, words, mess: float, pen: float, pen_px: float, rng, size=A4):
+def ink_coverage(page: Page, words, mess: float, pen: float, pen_px: float, rng, size=A4, uniform: bool = True,
+                 nib: np.ndarray | None = None, with_count: bool = False):
+    """uniform=True: words are re-inked at pen_px (one ballpoint width for the whole page)."""
     W, H = size[0] * SS, size[1] * SS
     ink = np.zeros((H, W), np.float32)
+    count = np.zeros((H, W), np.float32) if with_count else None
     for pl in page.words:
         wi = words[pl.idx]
-        lay, (ax, ay) = word_layer(wi.alpha, pl.scale, pl.angle, mess, pen, wi.baseline)
+        lay, (ax, ay) = word_layer(wi.alpha, pl.scale, pl.angle, mess, pen, wi.baseline,
+                                   stroke_px=pen_px * pen * float(np.clip(pl.ink, 0.9, 1.1)) if uniform else None,
+                                   nib=nib)
         # crop origin (top-left) sits at baseline - wi.baseline*scale
         ox = int(round(pl.x * SS - ax))
         oy = int(round((pl.base - wi.baseline * pl.scale) * SS - ay))
@@ -98,11 +126,34 @@ def ink_coverage(page: Page, words, mess: float, pen: float, pen_px: float, rng,
         sub = lay[y0 - oy:y1 - oy, x0 - ox:x1 - ox] * np.clip(pl.ink, 0.75, 1.1)
         region = ink[y0:y1, x0:x1]
         ink[y0:y1, x0:x1] = 1 - (1 - region) * (1 - np.clip(sub, 0, 1))
+        if count is not None:
+            count[y0:y1, x0:x1] += (sub > 0.35)
     strokes_layer = np.zeros_like(ink)
     for pts, wf in page.strokes:
-        draw_stroke(strokes_layer, pts, pen_px * wf * pen, rng)
+        if count is not None:
+            one = np.zeros_like(ink)
+            draw_stroke(one, pts, pen_px * wf * pen * 0.95, rng)
+            count += one > 0.35
+            np.maximum(strokes_layer, one, out=strokes_layer)
+        else:
+            draw_stroke(strokes_layer, pts, pen_px * wf * pen * 0.95, rng)
     ink = 1 - (1 - ink) * (1 - strokes_layer)
+    if count is not None:
+        return ink, np.maximum(count, (ink > 0.35).astype(np.float32))
     return ink
+
+
+def compose_physical(shape: np.ndarray, count: np.ndarray, pen, pressure: float, rng,
+                     paper: np.ndarray | None = None) -> np.ndarray:
+    """Stroke shape -> ink concentration (pens.concentration) -> RGB at 300 dpi."""
+    from .pens import concentration, to_rgb
+    from .layout import MM
+    c = concentration(shape, count, pen, rng, MM * SS)
+    c = c * pressure_field(shape.shape, rng, pressure)
+    c = cv2.resize(c, (shape.shape[1] // SS, shape.shape[0] // SS), interpolation=cv2.INTER_AREA)
+    if paper is None:
+        paper = np.full(c.shape + (3,), 255, np.float32)
+    return to_rgb(c, pen, paper)
 
 
 def compose(ink: np.ndarray, ink_hex: str, pressure: float, rng, paper: np.ndarray | None = None) -> np.ndarray:

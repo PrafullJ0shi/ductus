@@ -32,6 +32,7 @@ class Look:
     pressure: float = 0.18         # ink density variation
     ink: str = "#1c2a6e"
     pen: float = 1.0               # stroke weight multiplier
+    pen_mm: float = 0.42           # ballpoint line width (measured from the reference when there is one)
     gap_xh: float = 0.75           # word gap in x-heights (measured from the reference when there is one)
 
     @staticmethod
@@ -70,7 +71,7 @@ class WordBox(Box):
         w = L.words[idx]
         # carriers come out at slightly different sizes; pull each word most of the way to
         # the page x-height, then let size wander slowly along the line like a real hand
-        norm = float(np.clip((L.model_xh / max(w.xheight, 4.0)) ** 0.8, 0.72, 1.4))
+        norm = float(np.clip(L.model_xh / max(w.xheight, 4.0), 0.7, 1.45))
         L.size_walk = 0.8 * L.size_walk + L.rng.normal(0, 0.012 + 0.03 * L.look.mess)
         self.jit = norm * (1 + L.size_walk + L.rng.normal(0, 0.015 + 0.03 * L.look.mess))
         self.width = w.alpha.shape[1] * L.s * k * self.jit

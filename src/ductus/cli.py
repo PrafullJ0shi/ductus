@@ -22,7 +22,8 @@ def cmd_write(a):
         text = a.text
     o = Options(style=a.style, look=a.look, mode=a.mode, paper=a.paper, photo=a.photo, ink=a.ink,
                 seed=a.seed, steps=a.steps, verify=not a.no_verify, max_cer=a.max_cer,
-                corrections=a.corrections, pen=a.pen, size=a.size,
+                corrections=a.corrections, pen=a.pen, tip=a.tip, weight=a.weight,
+                flat_ink=a.flat_ink, size=a.size,
                 log=(lambda *x: None) if a.quiet else (lambda *x: print(*x, file=sys.stderr)))
     w = Writer(steps=a.steps, verify=not a.no_verify)
     r = w.write(text, o)
@@ -76,8 +77,12 @@ def main(argv=None):
     w.add_argument("--mode", default="plain", choices=["plain", "notes", "maths"])
     w.add_argument("--paper", default="white", choices=["white", "ruled", "grid"])
     w.add_argument("--photo", action="store_true", help="make it look like a phone photo")
-    w.add_argument("--ink", help="ink colour, e.g. '#1c2a6e'")
-    w.add_argument("--pen", type=float, help="stroke weight multiplier (1.0 = as sampled)")
+    w.add_argument("--ink", help="override the pen's ink colour, e.g. '#1c2a6e'")
+    w.add_argument("--pen", choices=["blue-ballpoint", "black-ballpoint", "blue-gel", "black-gel", "fountain", "pencil"],
+                   help="pen preset (default blue-ballpoint; a profile uses its measured ink and width)")
+    w.add_argument("--tip", type=float, help="nominal tip size in mm: 0.5, 0.7 or 1.0")
+    w.add_argument("--weight", type=float, help="stroke weight multiplier on top of the pen (1.0 = as is)")
+    w.add_argument("--flat-ink", action="store_true", help="old flat ink model, for comparison")
     w.add_argument("--size", type=float, help="x-height in mm (default 2.8)")
     w.add_argument("--seed", type=int, default=0)
     w.add_argument("--steps", type=int, default=25, help="diffusion steps (quality vs speed)")
