@@ -94,6 +94,7 @@ def _find_python() -> str:
 class RNNEngine:
     """Same interface as DiffBrushEngine: generate(texts, style_img, seed) -> line images."""
     name = "rnn"
+    xh_per_cw = 0.86     # x-height per mean character advance (diffusion lines: 1.15)
 
     def __init__(self, style: int | None = 4, bias: float = 1.5, python: str | None = None):
         self.style, self.bias = style, bias

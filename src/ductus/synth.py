@@ -173,14 +173,14 @@ class Synthesizer:
                         if not (lo <= ratio <= hi) and len(w) >= 3:
                             err = max(err, 1.0)          # the split put this word in the wrong span
                         if self.plain and any(c in self.plain for c in w):
-                            fl = flourishes(sub, w, bl, float(np.clip(cw * 1.15, 0.5 * xh, 1.5 * xh)), set(self.plain),
+                            fl = flourishes(sub, w, bl, float(np.clip(cw * getattr(eng, "xh_per_cw", 1.15), 0.5 * xh, 1.5 * xh)), set(self.plain),
                                             self.letter_profile)
                             if fl:
                                 err = max(err, max(0.6, self.max_cer + 0.05))   # looped f/r etc: write it again
                                 self.stats["flourish_rejects"] = self.stats.get("flourish_rejects", 0) + 1
                         r = read_words[k] if read_words is not None else ""
                         # size by mean letter width: the row-profile x-height is fooled by ascenders
-                        cand = WordImage(w, sub, bl, float(np.clip(cw * 1.15, 0.5 * xh, 1.5 * xh)), 1.0 - err, r)
+                        cand = WordImage(w, sub, bl, float(np.clip(cw * getattr(eng, "xh_per_cw", 1.15), 0.5 * xh, 1.5 * xh)), 1.0 - err, r)
                         if wid not in best or cand.score > best[wid].score:
                             best[wid] = cand
             pending = [(wid, w) for wid, w in pending
