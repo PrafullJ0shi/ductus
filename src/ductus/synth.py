@@ -88,7 +88,7 @@ class WordImage:
 
 
 _DEBUG = bool(__import__("os").environ.get("DUCTUS_DEBUG"))
-SOLO = re.compile(r"^[(\[]?[0-9A-Za-z]{1,2}[).\]]$")
+SOLO = re.compile(r"^[(\[]?[0-9A-Za-z]{1,2}[).\]]$|^-?[0-9]{1,3}$|^[A-Za-z]$")   # tiny tokens: own line
 
 
 @dataclass
@@ -217,8 +217,9 @@ class Synthesizer:
                         word_reads = self.reader.read([it[3] for it in items])
                     for n, (wid, w, sub, _, k, ratio) in enumerate(items):
                         if read_words is not None:
-                            e_line = self._accept(w, read_words[k])
-                            e_word = self._accept(w, word_reads[n]) if (len(normalise(w)) >= 3 or any(c.isdigit() for c in w)) else e_line
+                            nos = (lambda x: x.replace(" ", "")) if " " not in w else (lambda x: x)
+                            e_line = self._accept(w, nos(read_words[k]) if len(group) == 1 else read_words[k])
+                            e_word = self._accept(w, nos(word_reads[n])) if (len(normalise(w)) >= 3 or any(c.isdigit() for c in w)) else e_line
                             err = max(e_line, e_word) if self.strict else 0.5 * (e_line + e_word)
                             lw = normalise(w)
                             if (self._glyph_mode == "cursive" and lw and not any(c.isdigit() for c in w)
