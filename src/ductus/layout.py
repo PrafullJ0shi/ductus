@@ -24,7 +24,7 @@ MM = DPI / 25.4
 class Look:
     """Human-variation knobs. `mess` 0 = tidy, 1 = hurried."""
     mess: float = 0.45
-    xh_mm: float = 2.5             # x-height of the writing
+    xh_mm: float = 2.8             # x-height of the writing
     pitch: float = 3.6             # line pitch in x-heights
     slope_deg: float = -0.5        # mean baseline drift (negative = drifts upward to the right)
     margin_mm: tuple = (22, 20, 18, 22)   # left, top, right, bottom
@@ -32,6 +32,7 @@ class Look:
     pressure: float = 0.18         # ink density variation
     ink: str = "#1c2a6e"
     pen: float = 1.0               # stroke weight multiplier
+    gap_xh: float = 0.75           # word gap in x-heights (measured from the reference when there is one)
 
     @staticmethod
     def preset(name: str) -> "Look":
@@ -67,7 +68,11 @@ class WordBox(Box):
     def __init__(self, L, idx, k=1.0):
         self.idx, self.k = idx, k
         w = L.words[idx]
-        self.jit = 1 + L.rng.normal(0, 0.03 + 0.05 * L.look.mess)
+        # carriers come out at slightly different sizes; pull each word most of the way to
+        # the page x-height, then let size wander slowly along the line like a real hand
+        norm = float(np.clip((L.model_xh / max(w.xheight, 4.0)) ** 0.8, 0.72, 1.4))
+        L.size_walk = 0.8 * L.size_walk + L.rng.normal(0, 0.012 + 0.03 * L.look.mess)
+        self.jit = norm * (1 + L.size_walk + L.rng.normal(0, 0.015 + 0.03 * L.look.mess))
         self.width = w.alpha.shape[1] * L.s * k * self.jit
         self.deco = L.word_deco[idx]
         if "oops" in self.deco:
@@ -168,7 +173,9 @@ class Layouter:
         self.W, self.H = page_size
         self.xh = look.xh_mm * MM
         model_xh = float(np.median([w.xheight for w in words])) if words else 20.0
-        self.s = self.xh / max(model_xh, 4.0)
+        self.model_xh = max(model_xh, 4.0)
+        self.s = self.xh / self.model_xh
+        self.size_walk = 0.0
         self.mk = Marks(self.rng, self.xh, look.mess)
         self.pages: list[Page] = [Page()]
         self.line_angle = 0.0
@@ -185,7 +192,7 @@ class Layouter:
 
     def gap(self, k=1.0):
         m = self.look.mess
-        g = self.xh * (0.75 + self.rng.normal(0, 0.10 + 0.22 * m)) * k
+        g = self.xh * self.look.gap_xh * (1 + self.rng.normal(0, 0.13 + 0.29 * m)) * k
         return max(self.xh * 0.35, g)
 
     def slope_dy(self, w):

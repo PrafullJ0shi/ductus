@@ -112,3 +112,23 @@ def skew_angle(alpha: np.ndarray, search: float = 8.0, step: float = 0.25) -> fl
         if s > best:
             best, best_a = s, a
     return float(-best_a)  # skew of the content; rotate by -angle to straighten
+
+
+def ref_habits(gray: np.ndarray) -> dict:
+    """Spacing and stroke habits of a reference line image: word gap and stroke width,
+    both in x-heights. The generator copies letter shapes well but not spacing or weight,
+    so the layout and renderer take these from the reference directly."""
+    a = clean_line(gray)
+    bb = tight_bbox(a, 0.3)
+    if bb is None:
+        return {}
+    x0, y0, x1, y1 = bb
+    a = a[y0:y1, x0:x1]
+    _, xh = baseline_and_xheight(a)
+    runs = column_runs(a.max(axis=0) > 0.25)
+    gaps = np.array([runs[i + 1][0] - runs[i][1] for i in range(len(runs) - 1)], float)
+    word_gaps = gaps[gaps > 0.45 * xh]
+    out = {"stroke_xh": stroke_width(a) / xh}
+    if len(word_gaps) >= 2:
+        out["gap_xh"] = float(np.clip(np.median(word_gaps) / xh, 0.5, 2.2))
+    return out

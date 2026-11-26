@@ -61,7 +61,7 @@ def add_corrections(blocks: list[Block], rate: float, rng: random.Random) -> Non
 
 @dataclass
 class Options:
-    style: str = "quick"
+    style: str | None = None        # None: "upright" for the neat look, "quick" otherwise
     look: str = "natural"            # neat | natural | messy | profile
     mode: str = "plain"              # plain | notes | maths
     paper: str = "white"             # white | ruled | grid
@@ -99,15 +99,16 @@ class Writer:
 
     def write(self, text: str, o: Options) -> Result:
         t0 = time.time()
-        refs, prof = load_style(o.style)
+        refs, prof = load_style(o.style or ("upright" if o.look == "neat" else "quick"))
         look = Look.preset(o.look if o.look != "profile" else "natural")
         if prof:
             pl = prof.get("look", {})
-            for k in ("xh_mm", "pitch", "slope_deg", "mess", "ink"):
+            for k in ("xh_mm", "pitch", "slope_deg", "mess", "ink", "gap_xh"):
                 if k in pl:
                     setattr(look, k, pl[k])
             if o.look == "neat":
                 look.mess = min(look.mess, 0.2)
+        _match_reference(look, refs, prof)
         if o.ink:
             look.ink = o.ink
         if o.corrections is not None:
@@ -150,6 +151,8 @@ class Writer:
         # pen width for drawn marks follows the measured stroke width of the writing
         from .segment import stroke_width
         sw = float(np.median([stroke_width(w.alpha) for w in words[:40]])) * L.s
+        if not o.pen:
+            look.pen = _pen_match(look, words)
         out = []
         nrng = np.random.default_rng(o.seed)
         for pi, pg in enumerate(pages):
@@ -162,6 +165,27 @@ class Writer:
                      ocr_mean_score=round(float(np.mean([w.score for w in words])), 3) if words else None,
                      pen_px=round(sw, 2), max_cer=max_cer)
         return Result(out, pages, words, look, stats)
+
+
+def _match_reference(look: Look, refs, prof) -> None:
+    """Take word spacing from the reference lines (profiles carry their own measurement)."""
+    from .segment import ref_habits
+    hs = [ref_habits(r) for r in refs[:8] if r is not None]
+    gaps = [h["gap_xh"] for h in hs if "gap_xh" in h]
+    if gaps and not (prof and "gap_xh" in prof.get("look", {})):
+        look.gap_xh = float(np.median(gaps))
+    sx = [h["stroke_xh"] for h in hs if "stroke_xh" in h]
+    look._ref_stroke_xh = float(np.median(sx)) if sx else None
+
+
+def _pen_match(look: Look, words) -> float:
+    """Stroke weight multiplier that brings generated strokes to the reference's weight."""
+    from .segment import stroke_width
+    ref = getattr(look, "_ref_stroke_xh", None)
+    if not ref:
+        return look.pen
+    gen = float(np.median([stroke_width(w.alpha) / max(w.xheight, 4.0) for w in words[:60]]))
+    return float(np.clip(ref / max(gen, 1e-3), 0.85, 1.6))
 
 
 def write_lines(writer: "Writer", lines: list[str], o: Options) -> tuple[list[np.ndarray], dict]:
@@ -178,6 +202,7 @@ def write_lines(writer: "Writer", lines: list[str], o: Options) -> tuple[list[np
             if hasattr(look, k):
                 setattr(look, k, v)
     look.margin_mm = (4, 4, 4, 4)
+    _match_reference(look, refs, prof)
     blocks = [markup.parse(t, o.mode)[0] for t in lines]
     per_line = [[w.text for w in markup.block_words(b)] for b in blocks]
     flat = [w for ws in per_line for w in ws]
@@ -194,7 +219,7 @@ def write_lines(writer: "Writer", lines: list[str], o: Options) -> tuple[list[np
         L = Layouter(sub, [w.deco for w in markup.block_words(b)], look, seed=o.seed + k, page_size=(5600, 520))
         pg = L.layout([b])[0]
         sw = float(np.median([stroke_width(w.alpha) for w in sub])) * L.s
-        ink = ink_coverage(pg, sub, look.mess, look.pen, max(2.0, sw), rng, size=(5600, 520))
+        ink = ink_coverage(pg, sub, look.mess, _pen_match(look, words), max(2.0, sw), rng, size=(5600, 520))
         img = compose(ink, "#000000", look.pressure, rng)[..., 0]
         bb = tight_bbox((255 - img.astype(np.float32)) / 255.0, 0.2)
         x0, y0, x1, y1 = bb

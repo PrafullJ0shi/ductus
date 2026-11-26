@@ -21,14 +21,14 @@ ductus write INPUT -o OUT [options]
 | `INPUT` | `-` | text file with optional markup, or `-` for stdin |
 | `--text` | | inline text instead of a file |
 | `-o, --out` | `page` | output path without extension; writes `OUT.png` (or `OUT-1.png`, ...) and `OUT.pdf` |
-| `--style` | `quick` | a preset (`upright`, `slant`, `quick`, `round`, `loose`), a line image, or a profile folder from `ductus style` |
+| `--style` | `upright` for neat, else `quick` | a preset (`upright`, `slant`, `quick`, `round`, `loose`), a line image, or a profile folder from `ductus style` |
 | `--look` | `natural` | `neat`, `natural`, `messy`, or `profile` (use the measured habits of a profile) |
 | `--mode` | `plain` | `plain`, `notes` (auto-detects `Term: meaning`), `maths` (`= ...` lines align) |
 | `--paper` | `white` | `white` A4, `ruled`, or `grid` (5 mm) |
 | `--photo` | off | phone-photo look: perspective, light falloff, noise, JPEG |
 | `--ink` | `#1c2a6e` | ink colour |
 | `--pen` | `1.0` | stroke weight multiplier |
-| `--size` | `2.5` | x-height in mm |
+| `--size` | `2.8` | x-height in mm |
 | `--seed` | `0` | random seed (same seed, same page) |
 | `--steps` | `25` | diffusion steps; 50 is slightly cleaner and twice as slow |
 | `--max-cer` | by look | OCR acceptance threshold (neat 0.15, natural 0.25, profile 0.5) |

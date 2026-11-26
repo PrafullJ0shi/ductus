@@ -34,4 +34,7 @@ for s in systems:
                   cer_median=float(np.median(raw)), lines_ok=int(sum(c <= 0.1 for c in nor)),
                   n=len(refs), sec=meta.get("seconds_per_line"), reads=hyps)
     print(f"{s:18s} CER {res[s]['cer']:.3f}  normCER {res[s]['cer_norm']:.3f}  lines<=10% {res[s]['lines_ok']}/{len(refs)}  s/line {res[s]['sec']}", flush=True)
-json.dump({"judge": judge, "results": res}, open(root / f"scores-{judge.split('/')[-1]}.json", "w"), indent=1)
+outp = root / f"scores-{judge.split('/')[-1]}.json"
+old = json.loads(outp.read_text())["results"] if outp.exists() else {}
+old.update(res)                      # keep systems scored in earlier runs
+json.dump({"judge": judge, "results": old}, open(outp, "w"), indent=1)
