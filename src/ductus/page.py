@@ -76,6 +76,7 @@ class Options:
     tip: float | None = None         # nominal tip size in mm (0.5, 0.7, 1.0)
     weight: float | None = None      # stroke weight multiplier on top of the pen
     flat_ink: bool = False           # old flat ink model (kept for comparison)
+    cache: bool = True               # reuse words generated earlier for the same text and settings
     ink_model: str = "realism"       # realism (default) | pens | flat
     humanize: float = 0.5            # rate of the realism.human_errors pass on the laid-out page (0 = off)
     size: float | None = None        # x-height mm
@@ -139,10 +140,12 @@ class Writer:
                                                           (0.15 if o.look == "neat" else 0.25))
         from .synth import Synthesizer
         words = []
+        ckey = _cache_key(texts, o, max_cer, o.steps)
+        cached = _cache_get(ckey) if o.cache else None
         # several reference lines from a personal profile -> rotate them for natural variety
         chunks = np.array_split(np.arange(len(texts)), max(1, min(len(refs), (len(texts) + 39) // 40)))
         stats = {"lines_generated": 0, "still_failing": 0}
-        for ci, idx in enumerate(chunks):
+        for ci, idx in enumerate(chunks if cached is None else []):
             if len(idx) == 0:
                 continue
             ref = refs[ci % len(refs)]
@@ -152,6 +155,10 @@ class Writer:
             words += syn.run([texts[i] for i in idx])
             for k in stats:
                 stats[k] += syn.stats.get(k, 0)
+        if cached is not None:
+            words, stats = cached
+        elif o.cache:
+            _cache_put(ckey, (words, stats))
         # oops words are struck through by the layout
         deco = [w.deco for w in word_objs]
         L = Layouter(words, deco, look, seed=o.seed)
@@ -289,3 +296,36 @@ def write_lines(writer: "Writer", lines: list[str], o: Options) -> tuple[list[np
         out.append(img[max(0, y0 - 16):y1 + 16, max(0, x0 - 16):x1 + 16])
     stats = dict(syn.stats, seconds=round(time.time() - t0, 1))
     return out, stats
+
+
+CACHE_VERSION = 1  # bump when word synthesis changes
+
+
+def _cache_dir():
+    import os
+    from pathlib import Path
+    return Path(os.environ.get("DUCTUS_CACHE", Path.home() / ".cache" / "ductus" / "words"))
+
+
+def _cache_key(texts, o, max_cer, steps) -> str:
+    import hashlib, json
+    k = json.dumps([CACHE_VERSION, texts, o.style, o.look, o.seed, max_cer, o.verify, steps, o.mode], default=str)
+    return hashlib.sha1(k.encode()).hexdigest()
+
+
+def _cache_get(key):
+    import pickle
+    f = _cache_dir() / f"{key}.pkl"
+    if f.exists():
+        try:
+            return pickle.loads(f.read_bytes())
+        except Exception:
+            return None
+    return None
+
+
+def _cache_put(key, val) -> None:
+    import pickle
+    d = _cache_dir()
+    d.mkdir(parents=True, exist_ok=True)
+    (d / f"{key}.pkl").write_bytes(pickle.dumps(val))
