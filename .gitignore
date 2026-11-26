@@ -9,3 +9,4 @@ styles/*/
 *.ckpt
 *.pt
 *.safetensors
+benchmark/out/

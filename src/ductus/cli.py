@@ -21,7 +21,7 @@ def cmd_write(a):
     if a.text:
         text = a.text
     o = Options(style=a.style, look=a.look, mode=a.mode, paper=a.paper, photo=a.photo, ink=a.ink,
-                seed=a.seed, steps=a.steps, verify=not a.no_verify, max_cer=a.max_cer, cache=not a.no_cache, plain="" if a.allow_loops else "frbdhklt", legibility=a.legibility, engine=a.engine, rnn_style=a.rnn_style, rnn_bias=a.rnn_bias,
+                seed=a.seed, steps=a.steps, verify=not a.no_verify, max_cer=a.max_cer, cache=not a.no_cache, plain="" if a.allow_loops else "abcdefghijklmnopqrstuvwxyz", legibility=a.legibility, engine=a.engine, rnn_style=a.rnn_style, rnn_bias=a.rnn_bias,
                 corrections=a.corrections, pen=a.pen, tip=a.tip, weight=a.weight,
                 flat_ink=a.flat_ink, ink_model=a.ink_model, humanize=a.humanize, size=a.size,
                 log=(lambda *x: None) if a.quiet else (lambda *x: print(*x, file=sys.stderr)))

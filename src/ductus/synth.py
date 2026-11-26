@@ -69,7 +69,8 @@ class Synthesizer:
     log: callable = print
     fallback: object | None = None # second engine, used from round primary_rounds on and for
     primary_rounds: int = 99       # words the primary cannot write (engine.supported)
-    plain: str = "fr" + "bdhklt"   # letters that must use the plain form (no closed loops); "" = off
+    letter_profile: dict | None = None  # per-letter loop rates of the writer (letters.json)
+    plain: str = "abcdefghijklmnopqrstuvwxyz"   # letters that must use the plain form (no closed loops); "" = off
     stats: dict = field(default_factory=dict)
 
     def _carriers(self, words: list[tuple[int, str]], rng: random.Random):
@@ -172,7 +173,8 @@ class Synthesizer:
                         if not (lo <= ratio <= hi) and len(w) >= 3:
                             err = max(err, 1.0)          # the split put this word in the wrong span
                         if self.plain and any(c in self.plain for c in w):
-                            fl = flourishes(sub, w, bl, float(np.clip(cw * 1.15, 0.5 * xh, 1.5 * xh)), set(self.plain))
+                            fl = flourishes(sub, w, bl, float(np.clip(cw * 1.15, 0.5 * xh, 1.5 * xh)), set(self.plain),
+                                            self.letter_profile)
                             if fl:
                                 err = max(err, max(0.6, self.max_cer + 0.05))   # looped f/r etc: write it again
                                 self.stats["flourish_rejects"] = self.stats.get("flourish_rejects", 0) + 1

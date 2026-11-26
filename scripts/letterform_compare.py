@@ -50,7 +50,7 @@ def main():
     w = Writer()
     rows = [("before: quick preset, no letter-shape check", *row(w, "quick", "", a.seed))]
     for st in a.style:
-        rows.append((f"after: {st.rstrip('/').split('/')[-1]}, plain f/r check", *row(w, st, "frbdhklt", a.seed)))
+        rows.append((f"after: {st.rstrip('/').split('/')[-1]}, plain f/r check", *row(w, st, "abcdefghijklmnopqrstuvwxyz", a.seed)))
     W = max(r[1].shape[1] for r in rows)
     out = np.vstack([label(r[1], f"{r[0]}  (looped letters left: {r[2]}/{len(WORDS)} words)", W) for r in rows])
     cv2.imwrite(a.out, out)

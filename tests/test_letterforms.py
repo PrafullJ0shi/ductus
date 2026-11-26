@@ -33,3 +33,21 @@ def test_o_counter_is_not_a_flourish():
     a[33:41, 13:27] = 0         # an o: hole in the x-band
     assert len(holes(a)) == 1
     assert flourishes(a, "o", 44, 14) == []
+
+
+def looped_l():
+    a = canvas()
+    a[4:44, 18:21] = 1           # stem
+    a[4:20, 24:27] = 1           # second side of an ascender loop
+    a[4:7, 18:27] = 1
+    a[18:21, 18:27] = 1          # closes the loop above the x-height (baseline 44, xh 14)
+    return a
+
+
+def test_looped_l_flagged_by_default_and_profile_can_allow_it():
+    a = looped_l()
+    assert flourishes(a, "l", 44, 14) == ["l"]
+    allow = {"l": {"n": 5, "asc": 0.6, "x": 0.0, "desc": 0.0}}
+    assert flourishes(a, "l", 44, 14, profile=allow) == []
+    never = {"l": {"n": 5, "asc": 0.0, "x": 0.0, "desc": 0.0}}
+    assert flourishes(a, "l", 44, 14, profile=never) == ["l"]
