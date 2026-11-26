@@ -140,3 +140,154 @@ that run (see [STYLE_GUIDE.md](STYLE_GUIDE.md)).
 Implemented in `layout.py` (B, C), `render.py` and `pens.py` (D), `photo.py` (E). The
 rates live in `Look` and in a profile's `look` section, so a personal profile can set them
 from measurements.
+
+
+## G. The realism package (`src/ductus/realism/`)
+
+The default ink model, the phone capture and the human-error pass come from
+`ductus.realism`. Its capture parameters and ink colour are measured from a real phone photo
+of the user's notes by `python -m ductus.realism.calibrate` (`calibration.json`, status
+`measured`, 1 photo so far; more photos tighten the estimates). How it is wired in:
+
+- Ink: `--ink-model realism` (default) re-inks the 600 dpi stroke shape with
+  `realism.ink.ink_from_mask` and composites it in linear light (`render.compose_realism`);
+  strokes drawn twice are inked twice. `--ink-model pens` and `--flat-ink` keep the older models.
+- Behaviour: `humanize_bridge.humanize_page` runs `drift_size_slant` and `add_overwrites` on
+  the laid-out page (`--humanize RATE`, off for `--look neat`). Fatigue, tightening, margins and
+  squeezed line ends stay in `layout.py`, which already does them.
+- Photo: `--photo` uses `realism.phone_capture.capture`; the older model stays in `photo.py`.
+
+Before/after images: [phone capture](../examples/phone_compare.jpg),
+[human errors](../examples/human_errors_compare.png), [pens](../examples/ink_pens.png).
+
+Evidence numbers in the tables below refer to the "Further sources" list in this section.
+
+### Further sources (realism package)
+
+Handwriting, motor control, forensics
+
+1. Plamondon, R. (1995). A kinematic theory of rapid human movements, Part I. *Biological Cybernetics* 72(4), 295–307.
+2. Plamondon, R., & Srihari, S. N. (2000). On-line and off-line handwriting recognition: a comprehensive survey. *IEEE TPAMI* 22(1), 63–84.
+3. Lacquaniti, F., Terzuolo, C., & Viviani, P. (1983). The law relating the kinematic and figural aspects of drawing movements. *Acta Psychologica* 54, 115–130. (two-thirds power law)
+4. Van Galen, G. P. (1991). Handwriting: issues for a psychomotor theory. *Human Movement Science* 10, 165–191.
+5. Wann, J., & Nimmo-Smith, I. (1991). The control of pen pressure in handwriting: a subtle point. *Human Movement Science* 10, 223–246.
+6. Huber, R. A., & Headrick, A. M. (1999). *Handwriting Identification: Facts and Fundamentals*. CRC Press. (natural variation, alignment, spacing, i-dot and t-cross habits)
+7. Franke, K., & Rose, S. (2004). Ink-deposition model: the relation of writing and ink deposition processes. *IWFHR-9*, 173–178. doi:10.1109/IWFHR.2004.59
+8. Franke, K. (2005). *The influence of physical and biomechanical processes on the ink trace*. PhD thesis, University of Groningen. (ballpoint striations, ink depots, gaps, feathering; force vs intensity)
+9. Garnacho-Castaño, M. V., Faundez-Zanuy, M., & Lopez-Xarbau, J. (2020). On the handwriting tasks' analysis to detect fatigue. *Applied Sciences* 10(21), 7630. (letter height grew in >90 % of writers, width in 77 %)
+10. Kushki, A., Schwellnus, H., Ilyas, F., & Chau, T. (2011). Changes in kinetics and kinematics of handwriting during a prolonged writing task. *Research in Developmental Disabilities* 32(3), 1058–1064.
+11. Ellis, A. W. (1979). Slips of the pen. *Visible Language* 13(3), 265–282.
+12. Wing, A. M., & Baddeley, A. D. (1980). Spelling errors in handwriting: a corpus and a distributional analysis. In U. Frith (Ed.), *Cognitive Processes in Spelling* (pp. 251–285). Academic Press. (slips cluster in the middle of words)
+13. Bilgin Taşdemir, E. F., & Yanikoglu, B. A comparative study of delayed stroke handling approaches in online handwriting. *IJDAR* (2019). http://myweb.sabanciuniv.edu/berrin/files/2018/12/delayed-2018.pdf (i-dots and t-crosses written after the word)
+14. Graves, A. (2013). Generating sequences with recurrent neural networks. arXiv:1308.0850. (source of the demo strokes)
+
+Document images, cameras
+
+15. Journet, N., Visani, M., Mansencal, B., Van-Cuong, K., & Billy, A. (2017). DocCreator: a new software for creating synthetic ground-truthed document images. *Journal of Imaging* 3(4), 62.
+16. Groleau, A., Chee, K. W., Larson, S., Maini, S., & Boarman, J. (2023). Augraphy: a data augmentation library for document images. *ICDAR 2023*, 384–401. arXiv:2208.14558.
+17. Kieu, V. C., Visani, M., Journet, N., Domenger, J.-P., & Mullot, R. (2012). A character degradation model for grayscale ancient document images. *ICPR 2012*.
+18. Baird, H. S. (1992). Document image defect models. In *Structured Document Image Analysis*, Springer, 546–556.
+19. Das, S., Ma, K., Shu, Z., Samaras, D., & Shilkrot, R. (2019). DewarpNet: single-image document unwarping with stacked 3D and 2D regression networks. *ICCV 2019*. (Doc3D)
+20. Cao, H., Ding, X., & Liu, C. (2003). Rectifying the bound document image captured by the camera: a model based approach. *ICDAR 2003*. (curl near the binding)
+21. Burie, J.-C., et al. (2015). ICDAR2015 competition on smartphone document capture and OCR (SmartDoc). *ICDAR 2015*. (perspective, light and defocus ranges in phone captures)
+22. Foi, A., Trimeche, M., Katkovnik, V., & Egiazarian, K. (2008). Practical Poissonian-Gaussian noise modeling and fitting for single-image raw-data. *IEEE TIP* 17(10), 1737–1754.
+23. Brooks, T., Mildenhall, B., Xue, T., Chen, J., Sharlet, D., & Barron, J. T. (2019). Unprocessing images for learned raw denoising. *CVPR 2019*. (camera pipeline order: noise in linear raw, then WB, demosaic, tone curve)
+24. Goldman, D. B. (2010). Vignette and exposure calibration and compensation. *IEEE TPAMI* 32(12), 2276–2288.
+25. McCamy, C. S. (1992). Correlated color temperature as an explicit function of chromaticity coordinates. *Color Research & Application* 17(2), 142–144.
+26. Sharma, G. (2001). Show-through cancellation in scans of duplex printed documents. *IEEE TIP* 10(5), 736–754.
+27. Postl, W. (1986). Detection of linear oblique structures and skew scan in digitized documents. *ICPR 1986*, 687–689. (projection-profile skew)
+28. Pertuz, S., Puig, D., & Garcia, M. A. (2013). Analysis of focus measure operators for shape-from-focus. *Pattern Recognition* 46(5), 1415–1432. (variance of Laplacian)
+29. Wallace, G. K. (1992). The JPEG still picture compression standard. *IEEE Trans. Consumer Electronics* 38(1). (IJG quantisation tables used to estimate quality)
+30. Kubelka, P., & Munk, F. (1931). Ein Beitrag zur Optik der Farbanstriche. *Z. Tech. Phys.* 12, 593–601. (ink as a subtractive layer; this module uses the simpler Beer–Lambert form)
+
+### Package checklist
+
+Legend: **I** = implemented (function), **D** = deferred (why). Evidence numbers refer to the list above.
+
+#### Ink trace (`realism/ink.py`)
+
+| # | Detail | Status | Evidence |
+|---|---|---|---|
+| 1 | Line width set by the tip (0.5/0.7/1.0 mm tips leave ~0.30/0.38/0.50 mm lines) | I `line_width_px`, `BALLPOINT_LINE_MM` | manufacturer line widths; 8 |
+| 2 | Width grows with pen pressure | I `stroke_concentration` (half-width 0.78–1.18×) | 5, 7 |
+| 3 | Ink deposit grows with force and falls with speed | I (`pressure_gain`, `speed_fade`) | 7, 8 |
+| 4 | Speed from real timing; if none, from curvature (two-thirds power law) | I `stroke_speed` | 3 |
+| 5 | Downstrokes heavier than upstrokes | I `down_gain` | 5, 6 |
+| 6 | Ballpoint striations (light tracks along the stroke) | I `striation` | 8 |
+| 7 | Ink gaps (skips) on fast stretches, mostly mid-stroke | I `skips` | 8 |
+| 8 | Ink depots (blobs) at a slow start, sharp turns and the end | I `blob`, `blob_rate` | 8 |
+| 9 | Flying start and finish: fast strokes taper in and out | I `taper` | 6 |
+| 10 | Slow along-stroke opacity variation | I `flow_var` | 7 |
+| 11 | Stroke-to-stroke ink-flow variation | I `stroke_var` | 8 |
+| 12 | Ragged edges from paper fibres, both sides independent | I `rough` | 8 |
+| 13 | Fibre bleed (wicking) with oriented fibre texture | I `_finish`, `fibre_field` | 8, 16 |
+| 14 | Overlaps darker (ink adds), with saturation | I (`_paste_add` + tanh) | 7 |
+| 15 | Colour by Beer–Lambert in linear light: thin = paler and bluer, dense = navy | I `transmittance` | 30 |
+| 16 | Ink multiplies the paper and grid lines (not painted on) | I `composite` | 30 |
+| 17 | Gel pen: even, saturated, darker dried rim, almost no skips | I `gel-*` presets | 8 |
+| 18 | Fountain pen: width by nib angle, pooling at ends, feathering | I `fountain` preset (`nib_angle`, `edge_dark`, bleed) | 8 |
+| 19 | Pencil: graphite only on the paper tooth, grey without sheen | I `pencil` preset (`grain`) | 8 |
+| 20 | Re-ink raster word images (diffusion output) with the same texture | I `ink_from_mask` | — |
+| 21 | Ballpoint sheen (glossy paste reflecting light at an angle) | D: needs light direction per pixel; small at phone distance | 8 |
+| 22 | Indentation (embossing) visible in raking light | D: needs a height map; slight value in close-ups only | 6 |
+| 23 | Ink build-up on the ball released as a blob after a long pause between words | partly I via start blobs; per-word pause timing D | 8 |
+
+#### Writing behaviour (`realism/human_errors.py`)
+
+| # | Detail | Status | Evidence |
+|---|---|---|---|
+| 24 | Slow drift of size and slant across words (random walk, not white noise) | I `drift_size_slant` | 6 |
+| 25 | Baseline wobble and small word rotations | I `drift_size_slant` | 6 |
+| 26 | Uneven word gaps | I (`gap_after`) | 6 |
+| 27 | Writing grows larger and wider down the page (fatigue) | I `apply_fatigue` | 9, 10 |
+| 28 | Slant and unsteadiness increase late on the page | I `apply_fatigue` | 10 |
+| 29 | Lines rise towards the right | I `apply_fatigue` (`rise_deg`) | 6 |
+| 30 | Words re-break when they grow (no text spilling off the page) | I `rewrap` | — |
+| 31 | Line spacing tightens and writing shrinks near the bottom | I `tighten_bottom` | 6 |
+| 32 | Left margin creeps and jitters; ragged right edge | I `uneven_margins` | 6 |
+| 33 | Last word squeezed or run into the margin instead of wrapping | I `squeeze_line_ends` | 6 |
+| 34 | Slips of the pen (omission, doubling, transposition, anticipation, stopped part-way) | I `make_slip` | 11, 12 |
+| 35 | Slips sit mostly in the middle of words | I (beta(2.2, 2.2) position) | 12 |
+| 36 | Strike-through: single, double or scribble, then the right word after it | I `add_strike_corrections` | 11 |
+| 37 | Caret insertion: forgotten word added smaller above the line | I `add_caret_insertions` | 6 |
+| 38 | Retouched letter written over itself (darker, doubled) | I `add_overwrites` (+ demo renderer) | 6 |
+| 39 | i-dots placed late: right of the stem, high, sometimes a dash, sometimes missing | I `delayed_strokes` | 13, 6 |
+| 40 | t-crosses rise to the right and can reach the next letter | I `delayed_strokes` | 13, 6 |
+| 41 | Marks drawn as fast, even-speed strokes with the same pen | I `marks_to_strokes` | 7 |
+| 42 | Hyphenation or squashed half-words at line ends | D: rare in student notes; `squeeze_line_ends` covers it | 6 |
+| 43 | Personal letter variants (two forms of the same letter) learnt from his pages | D: belongs to the style profile (`profile.py`) | 6 |
+| 44 | Writing speed (and so ink) rises when copying familiar words | D: needs word-frequency timing in the glyph engine | 4 |
+
+#### Phone capture (`realism/phone_capture.py`)
+
+| # | Detail | Status | Evidence |
+|---|---|---|---|
+| 45 | Grid, ruled, dotted or plain paper with uneven printed lines | I `make_paper` | — |
+| 46 | Paper cloudiness and fibres | I `make_paper` | 16, 17 |
+| 47 | Show-through of the back page, mirrored and blurred | I `add_show_through` | 26 |
+| 48 | Camera tilt (pitch, yaw) from a real pinhole projection, not random corners | I `capture` (`_rot`, `focal`) | 21 |
+| 49 | In-plane rotation | I (`roll_deg`) | 21 |
+| 50 | Curl near the spiral with a shading band | I (`curl`, `curl_width`) | 19, 20 |
+| 51 | Spiral holes and wire coils over the binding edge | I `_spiral` | — |
+| 52 | Page edge, pages underneath, thin thickness shadow on the desk | I (`page_edge`) | — |
+| 53 | Desk background | I `_desk` | 16 |
+| 54 | Uneven light: gradient across the page | I (`light_gradient`) | 21 |
+| 55 | Soft hand or phone shadow with a wide penumbra | I (`shadow`, `shadow_softness`) | 16 |
+| 56 | Light multiplied in linear RGB | I | 23 |
+| 57 | Auto exposure puts the paper at a fixed level | I (`exposure`) | 23 |
+| 58 | Residual white-balance tint (warm indoor light) | I (`wb_gains`, `wb_jitter`) | 23, 25 |
+| 59 | Vignetting | I (`vignette`) | 24 |
+| 60 | Defocus that follows depth (tilted page, lifted curl) | I (`defocus`, depth map) | 21, 28 |
+| 61 | Lens and demosaic softness everywhere | I (`base_blur`) | 23 |
+| 62 | Lateral chromatic aberration towards the corners | I (`chroma_aberration`) | 23 |
+| 63 | Poisson–Gaussian sensor noise, stronger in shadows | I (`noise_shot`, `noise_read`) | 22 |
+| 64 | ISP chroma denoising (noise is mostly in luma) | I (`chroma_denoise`) | 23 |
+| 65 | Tone curve and sharpening halos | I (`tone_contrast`, `sharpen`) | 23 |
+| 66 | JPEG with 4:2:0 chroma subsampling at a measured quality | I (`jpeg_quality`) | 29 |
+| 67 | Measurement of all the above from real photos | I `calibrate.py` | 22, 25, 27, 28, 29 |
+| 68 | Motion blur from a hand-held shot | D: phones use short exposures in good light; add if his photos show it | 21 |
+| 69 | Finger or thumb at the page edge | D: easy to add to `_shadow_polygon`; not seen as common | — |
+| 70 | Moiré between the grid and the sensor | D: arises from resampling; not modelled explicitly | — |
+| 71 | HDR / multi-frame local tone mapping (flat-looking shadows) | D: partly covered by the shadow strength | 23 |
+| 72 | Specular glare on the page | D: paper is matte; would need a light position | — |
+
