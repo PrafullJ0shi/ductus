@@ -271,7 +271,14 @@ def write_lines(writer: "Writer", lines: list[str], o: Options) -> tuple[list[np
     syn = Synthesizer(writer.engine, refs[0], writer.reader if o.verify else None, max_cer=max_cer,
                       loose=bool(prof), seed=o.seed, log=o.log,
                       strict=not prof, rounds=5 if o.look == "neat" else 4)
-    words = syn.run(flat)
+    ckey = _cache_key(["lines"] + flat, o, max_cer, o.steps)
+    cached = _cache_get(ckey) if o.cache else None
+    if cached is not None:
+        words, syn.stats = cached
+    else:
+        words = syn.run(flat)
+        if o.cache:
+            _cache_put(ckey, (words, dict(syn.stats)))
     out, k = [], 0
     rng = np.random.default_rng(o.seed)
     import cv2
@@ -288,9 +295,13 @@ def write_lines(writer: "Writer", lines: list[str], o: Options) -> tuple[list[np
         if o.flat_ink:
             ink = ink_coverage(pg, sub, look.mess, look.pen, sw, rng, size=(5600, 520))
             img = compose(ink, "#000000", look.pressure, rng)[..., 0]
-        else:
+        elif o.ink_model == "pens":
             shape, count = ink_coverage(pg, sub, look.mess, look.pen, sw, rng, size=(5600, 520), nib=nib, with_count=True)
             img = cv2.cvtColor(compose_physical(shape, count, pen, look.pressure, rng), cv2.COLOR_RGB2GRAY)
+        else:
+            from .render import compose_realism
+            shape, count = ink_coverage(pg, sub, look.mess, look.pen, sw, rng, size=(5600, 520), nib=nib, with_count=True)
+            img = cv2.cvtColor(compose_realism(shape, count, pen, o.seed + k, None), cv2.COLOR_RGB2GRAY)
         bb = tight_bbox((255 - img.astype(np.float32)) / 255.0, 0.2)
         x0, y0, x1, y1 = bb
         out.append(img[max(0, y0 - 16):y1 + 16, max(0, x0 - 16):x1 + 16])
