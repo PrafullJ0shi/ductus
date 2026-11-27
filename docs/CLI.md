@@ -75,6 +75,7 @@ The table follows `src/ductus/cli.py`. If you change one, change the other.
 | `--no-verify` | off | skip the OCR read-back (faster, more mistakes) |
 | `--ocr` | `cascade` | read-back model: `cascade` reads with trocr-small first and has trocr-base re-read only what it rejects; `base` is the old single model (slower); `small` skips the re-read |
 | `--fast` | off | draft speed: `--ocr small`, 4 rewrite rounds instead of 8, no diffusion fallback. A few more rough words |
+| `--no-bank` | off | do not take words from the word bank of earlier runs or add to it ([wordbank.py](../src/ductus/wordbank.py)); the bank is on by default in the CLI |
 | `--budget S` | none | no new rewrite round starts after S seconds; words still failing keep their best attempt |
 | `--steps N` | `25` | diffusion steps; more is slower |
 | `--no-cache` | off | generate words afresh instead of reusing earlier ones |
@@ -92,6 +93,9 @@ words still failing after the last round, seconds, the pen and the OCR mean scor
 | `DUCTUS_RNN_BATCH` | lines the RNN samples together (default 8) |
 | `DUCTUS_RNN_THREADS` | at most this many CPU threads for the RNN (default 2) |
 | `DUCTUS_THREADS` | CPU threads for the models; default: the cores free when ductus starts (8 cores minus the load), at most 8 |
+| `DUCTUS_ONNX` | `0` runs the OCR image encoder in PyTorch instead of ONNX Runtime |
+| `DUCTUS_BEST_OF` | candidates per stubborn word in the late rewrite rounds (default 3) |
+| `DUCTUS_SKIP_READS` | `0` reads every word crop, even where the read cannot change the verdict |
 | `DUCTUS_DEVICE` | `cpu`, `cuda` or `mps`; default: a CUDA or Apple GPU when PyTorch sees one, else the CPU |
 | `DUCTUS_CACHE` | folder for downloaded weights (default `~/.cache/ductus`). The word cache uses the same variable as its own folder (default `~/.cache/ductus/words`) |
 

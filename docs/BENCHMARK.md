@@ -376,6 +376,58 @@ What made it faster, in order of effect:
 Tried and rejected: int8 dynamic quantisation of trocr-base (16 of 16 word reads changed, mostly
 to unrelated words) and a bigger OCR batch on the CPU (slower than one crop at a time under load).
 
+## Round 7: more speed ideas, measured one by one
+
+Same 84-word page (`page90.txt`, seed 0, `--no-cache`), `DUCTUS_THREADS=4`, on the shared 8-core
+CPU box. Other jobs moved the load between 1 and 14 during the day, which moved wall times by
+up to 4x for the same code, so methods were compared in back-to-back pairs, and the table gives
+the OCR crops read (does not depend on the load) next to the seconds. CER is the 4-main-line
+norm CER of the 7-line benchmark page, trocr-large judge, as in the earlier rounds.
+
+| Method | Seconds per page (load) | OCR crops read | Words failing | Bench CER | Kept? |
+|---|---|---|---|---|---|
+| round 6 default (reference) | 80 (1.4), 82 (3.2), 128 (13) | 194 | 0 | 0.038 | - |
+| ONNX Runtime image encoder | 84 (4.1) against 82; 165 against 128 at load 13 before thread spinning was turned off | 194 | 0 | - | kept, spinning off (1.15x on reads at load 14, 1.6 to 1.8x idle) |
+| skip word reads that cannot change the verdict | 81 (4.0) against 84 | 181 | 0 | - | kept (exact: same verdicts) |
+| best of 3 candidates in the solo rounds | 96 vs 125, 285 vs 406, 80 vs 91 in three pairs | 184 | 0 | 0.038 | kept, default |
+| **round 7 default, cold (all of the above)** | **84 (4.0)** | 184 | 0 | **0.038** | - |
+| word bank, warm with 1,100 common words (not from this page) | 78 (3.8) | 139 | 0 | 0.038 (bench page: 35 s, was 57 s) | kept, on in the CLI |
+| word bank, same page written again | 22 (3.9 to 5.3), twice | 2 | 0 | - | kept |
+| `--fast`, cold | 36 (4.5) | 117 | 3 | 0.043 | - |
+| `--fast`, warm bank, page seen before | 22 (4.3) | 9 | 0 | - | - |
+
+Read this honestly:
+
+- On a cold page these ideas save little: about 5 to 25% in the pairs, and the final cold run
+  (84 s) is no faster than the round 6 reference measured at a lower load (80 s). The OCR
+  read-back is still most of the time, and it can only be skipped where its verdict is already
+  known.
+- The word bank is the large gain, and only for words it has seen: a page written before
+  takes 22 s instead of about 80 s, and the 7-line bench page 35 s instead of 57 s. On the
+  84-word page a general bank of 1,100 frequent words covered only about 28 words, because
+  most tokens carry punctuation (`patterns.`) or are topic words, so it saved only a few seconds.
+- The bank's anti-copy rules: one variant at most once per run, a slight warp on every use, a
+  variant retired after 3 runs. The third warm run of the same page found most variants
+  retired and wrote the words again (166 crops), as designed. Re-used words are the same
+  letter shapes across documents up to that limit, which a close comparison of two of your
+  documents could notice; `--no-bank` turns it off.
+- Not kept or not done:
+  - Skipping TrOCR for words a stroke check calls safe (pen-up count, width against letter
+    count, attention order). No stroke signal was found that predicts the OCR verdict closely
+    enough, and the cursive r and f are redrawn after the RNN, so its attention says nothing
+    about them. Only the exact part was done (skipping reads whose result cannot matter).
+  - Predicting failure-prone words from logs and writing them with more candidates in round 1.
+    The words that fail are mostly the same few (`fixed`, `ChatGPT,`), and once one passes it
+    goes into the bank, which already covers the repeat case.
+  - Generation and OCR in parallel processes. The RNN is now about 8 s of the page, so
+    overlapping it saves little, and one ductus process with both OCR models and the diffusion
+    fallback uses about 5 GB: one run in this round was killed when the box ran out of memory.
+  - Render: the page ink (`realism/ink.py`) takes 11 to 13 s, mostly colour conversion over
+    the whole text area. It belongs to the realism work and was left for it. Caching the paper
+    texture saves nothing (0.07 s).
+  - A whole ONNX export of TrOCR with its decoder: not tried; int8 was tried in round 6 and
+    changed every read.
+
 ## Raw data
 
 Per-system numbers: [`benchmark/metrics.csv`](../benchmark/metrics.csv). Systems and settings:

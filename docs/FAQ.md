@@ -40,6 +40,13 @@ fail. The default reads with a small model first and asks the larger one only ab
 small one rejects. Fewer rewrite rounds, `--fast` and `--budget` trade a few rough words for
 time. On a busy machine, fewer threads can be faster: set `DUCTUS_THREADS`.
 
+**Why is a page I wrote before so much faster?**
+Words that pass the read-back go into a word bank (`~/.cache/ductus/bank`) and later pages
+take them instead of writing them again: a page written before took 22 s instead of about
+80 s ([round 7](BENCHMARK.md#round-7-more-speed-ideas-measured-one-by-one)). A saved word is
+used at most once per document, warped slightly each time, and dropped after 3 documents, so
+pages do not repeat. `--no-bank` turns it off; `scripts/build_bank.py` fills it from a word list.
+
 **How do I make a draft faster?**
 Use `--fast` (small OCR only, 4 rewrite rounds, no diffusion fallback: 4 to 5 times faster, a
 few more rough words; 2 to 3 of 84 words failed in the test), `--budget SECONDS` to stop
