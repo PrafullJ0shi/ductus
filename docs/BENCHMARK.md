@@ -237,6 +237,53 @@ What changed, honestly:
   that text over 3 A4 pages, so one full page at this size is closer to 80 to 110 words
   than to 250. 8 of 243 words still failed the read-back.
 
+## Round 4: numbers, symbols and capitals from templates
+
+Same 7 lines, same judge, same scripts. Changes since round 3: tokens made only of digits,
+maths symbols and capitals (`3.14`, `2026`, `BTC`, `S.D.`, `4)`, `(`, `&`) are drawn from
+plain print templates with per-instance jitter (`src/ductus/printglyphs.py`) instead of by the
+RNN; superscripts and fraction parts are no longer moved off their marks by the humanize pass.
+
+| System | norm CER, 4 main lines | raw CER, 4 main lines | short | definition | maths | pangram | caps (norm) | digits (norm) | symbols (raw) | s per line |
+|---|---|---|---|---|---|---|---|---|---|---|
+| ductus natural, round 1 | 0.148 | 0.193 | 0.133 | 0.057 | 0.400 | 0.000 | 0.000 | 0.333 | 0.652 | 390 (load 20 to 32) |
+| ductus natural, round 2 | 0.113 | 0.153 | 0.000 | 0.000 | 0.450 | 0.000 | 0.227 | 0.185 | 0.696 | 23 (load 4 to 12) |
+| ductus natural, round 3 | 0.093 | 0.150 | 0.000 | 0.000 | 0.350 | 0.023 | 0.136 | 0.111 | 0.609 | 38 (load 3 to 5) |
+| **ductus natural, round 4** | 0.122 | 0.185 | 0.000 | 0.000 | 0.350 | 0.140 | **0.000** | **0.037** | **0.478** | 77 (load 12 to 15) |
+| sjvasquez, bias 0.75 | 0.084 | 0.191 | 0.000 | 0.114 | 0.200 | 0.023 | 1.500 | 0.482 | 0.783 | 2.7 |
+| Grzego RNN, bias 1.5 | 0.124 | 0.201 | 0.000 | 0.171 | 0.300 | 0.023 | 0.591 | 0.111 | 0.826 | 5.2 |
+| text-to-handwriting, Caveat | 0.000 | 0.088 | 0.000 | 0.000 | 0.000 | 0.000 | 0.000 | 0.037 | 0.478 | 0.7 |
+
+What the judge read for ductus in this round:
+
+| line | ductus wrote, as read by OCR |
+|---|---|
+| short | `meet me at the library at 5 p.m.` |
+| definition | `Variance - mean of Squared deviations` |
+| maths | `mean # # and X ? # 36` |
+| pangram | `They quick brown for jumps over the lazy` ("dog." wrapped onto a second line and was not read) |
+| caps | `BTC NASA HTML GPU ICCV.` |
+| digits | `0123456789 and 3.4 and 2026` (the decimal "3.14" read as "3.4") |
+| symbols | `# # ( ) at & ? # #` |
+
+What changed, honestly:
+
+- Capitals, digits and symbols improved clearly: caps 0.136 to 0.000, digits 0.111 to
+  0.037 (level with the fonts), symbols raw 0.609 to 0.478 (level with Caveat, still behind
+  the other fonts at 0.348 and 0.435).
+- The maths line did not move (0.350). On the page it now reads `mean = 30/5 = 6 and x² = 36`
+  cleanly by eye, but the judge still cannot read the stacked fraction or the drawn `=` marks
+  (it reads them as `#`), so this line measures the judge as much as the writing.
+- The main-line average got worse (0.093 to 0.122), and all of that is the pangram: this time
+  the RNN wrote the line a little wider, it wrapped, and the crop the judge read held
+  "dog." on a second line it did not read; "fox" was also read as "for" again. That is one
+  sample of one line, not a measured regression in letters, but it is the number this test
+  gives.
+- No word failed the read-back (0 of 50, against 5 in round 3). 24 of the 50 tokens were
+  drawn from templates (many tokens on the caps, digits and symbols lines).
+- Speed: 532 s for the page (77 s per line) under a load of 12 to 15 from other jobs on the
+  machine, so this time is not comparable with round 3.
+
 ## Raw data
 
 Per-system numbers: [`benchmark/metrics.csv`](../benchmark/metrics.csv). Systems and settings:

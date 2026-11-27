@@ -63,7 +63,7 @@ that run (see [STYLE_GUIDE.md](STYLE_GUIDE.md)).
 |---|---|---|---|---|---|
 | 18 | Baseline drift and per-line slope | lines are not ruled | per-line slope with random walk; profile measures the writer's slope | done | pending |
 | 19 | Upward drift to the right | a habit of the writer | `slope_deg` negative; measured in a profile | done | pending |
-| 20 | Words bob on the baseline | motor variability | per-word vertical jitter | done | |
+| 20 | Words bob on the baseline | motor variability | per-word vertical jitter plus a slow baseline walk shared by neighbouring words (small, about 0.02 to 0.06 x-height) | done | |
 | 21 | Word spacing varies | inter-word spacing is a habit with variation (NIST 8282 table 1.1) | gap from the reference line, with noise | done | |
 | 22 | Spacing after punctuation inconsistent | habit | `punct_gap`: extra random gap after , . ; : | done | pending |
 | 23 | Squeezed words at the line end | writers misjudge word length at line ends (fatigue study) | `squeeze`: a word up to 14% too long is compressed instead of wrapped | done | pending |
@@ -97,7 +97,7 @@ that run (see [STYLE_GUIDE.md](STYLE_GUIDE.md)).
 | 41 | Lighter on fast straight strokes, darker in curves | speed falls with curvature (two-thirds power law) | structure-tensor coherence lowers concentration | done | pending |
 | 42 | Blobs at stroke starts, ends and turns | ballpoint gooping | blob field from centre-line ends and junctions | done | pending |
 | 43 | Faint skips on fast strokes | ballpoint skipping | streak noise on fast stretches | done | pending |
-| 44 | Pressure varies along a line | pressure is not constant | low-frequency concentration field | done | pending |
+| 44 | Pressure varies along a line | pressure is not constant | low-frequency concentration field, plus a slow per-word ink walk along each line | done | pending |
 | 45 | Heavier downstrokes | more force pulling toward the body | needs stroke direction; the coherence term is direction-free | deferred | pending |
 | 46 | Ink starts faint after a pause | ball dries while resting | needs stroke order | deferred | pending |
 | 47 | Tiny hooks at stroke starts | pen lands moving | generator output | partial | pending |
