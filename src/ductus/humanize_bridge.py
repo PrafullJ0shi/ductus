@@ -24,7 +24,12 @@ def humanize_page(pg, words, L, rate: float, seed: int) -> None:
     # be laid out as a word of its own (that pushed it a word gap to the right: "like like")
     before = {i: (p.x, p.base, p.scale, p.angle) for i, p in enumerate(pg.words)}
     copies = [i for i, p in enumerate(pg.words) if getattr(p, "of", None) is not None]
-    order = sorted((i for i in range(len(pg.words)) if i not in set(copies)),
+    # superscripts and fraction parts are written smaller and hang off pen marks (fraction bar,
+    # the base letter): leave them where the layout put them, and do not let them push words
+    import numpy as _np
+    med = float(_np.median([p.scale for p in pg.words])) if pg.words else 1.0
+    fixed = {i for i, p in enumerate(pg.words) if p.scale < 0.9 * med and i not in copies}
+    order = sorted((i for i in range(len(pg.words)) if i not in set(copies) and i not in fixed),
                    key=lambda i: (pg.words[i].base, pg.words[i].x))
     lines, cur, last = [], [], None
     for i in order:
