@@ -52,8 +52,12 @@ class DiffBrushEngine:
 
     def __post_init__(self):
         import torch
+        from ... import speed
         if self.threads:
             torch.set_num_threads(self.threads)
+        else:
+            speed.setup()
+        self.device = speed.device()
         from .unet import UNetModel
         from diffusers import AutoencoderKL
         ckpt, vae_dir = fetch_weights()
@@ -62,8 +66,8 @@ class DiffBrushEngine:
                               attention_resolutions=(1, 1), channel_mult=(1, 1), num_heads=4,
                               context_dim=512, nb_classes=496)
         self.unet.load_state_dict(torch.load(ckpt, map_location="cpu"))
-        self.unet.eval()
-        self.vae = AutoencoderKL.from_pretrained(str(vae_dir), subfolder="vae").eval()
+        self.unet.eval().to(self.device)
+        self.vae = AutoencoderKL.from_pretrained(str(vae_dir), subfolder="vae").eval().to(self.device)
         g = np.load(Path(__file__).with_name("glyphs.npz"))
         self.glyphs = torch.stack([torch.from_numpy(g[str(ord(c))].astype(np.float32)) for c in LETTERS])
         self.index = {c: i for i, c in enumerate(LETTERS)}
@@ -97,14 +101,15 @@ class DiffBrushEngine:
                 raise ValueError(f"unsupported characters for diffusion engine: {bad!r}")
         n = len(texts)
         L = max(len(t) for t in texts)
-        content = torch.cat([self.content_tensor(t.ljust(L)) for t in texts])
-        style = self.style_tensor(style_img).repeat(n, 1, 1, 1)
-        gen = torch.Generator().manual_seed(int(seed))
-        x = torch.randn((n, 4, LINE_H // 8, LINE_W // 8), generator=gen)
+        dev = self.device
+        content = torch.cat([self.content_tensor(t.ljust(L)) for t in texts]).to(dev)
+        style = self.style_tensor(style_img).repeat(n, 1, 1, 1).to(dev)
+        gen = torch.Generator().manual_seed(int(seed))     # noise drawn on the CPU: same seed, same page
+        x = torch.randn((n, 4, LINE_H // 8, LINE_W // 8), generator=gen).to(dev)
         times = list(reversed(torch.linspace(-1, 999, steps=self.steps + 1).int().tolist()))
-        with torch.no_grad():
+        with torch.inference_mode():
             for t, t_next in zip(times[:-1], times[1:]):
-                tt = torch.full((n,), t, dtype=torch.long)
+                tt = torch.full((n,), t, dtype=torch.long, device=dev)
                 eps = self.unet(x, tt, style, content)
                 ah = self.alpha_hat[t]
                 x0 = (x - (1 - ah).sqrt() * eps) / ah.sqrt()
@@ -114,7 +119,7 @@ class DiffBrushEngine:
                 ahn = self.alpha_hat[t_next]
                 sigma = self.eta * ((self.beta[t] * (1 - ahn) / (1 - ah)).sqrt())
                 c = (1 - ahn - sigma ** 2).sqrt()
-                x = x0 * ahn.sqrt() + c * eps + sigma * torch.randn(x.shape, generator=gen)
+                x = x0 * ahn.sqrt() + c * eps + sigma * torch.randn(x.shape, generator=gen).to(dev)
             img = self.vae.decode(x / 0.18215).sample
-        img = ((img / 2 + 0.5).clamp(0, 1).mean(1) * 255).round().byte().numpy()
+        img = ((img / 2 + 0.5).clamp(0, 1).mean(1) * 255).round().byte().cpu().numpy()
         return [img[i] for i in range(n)]
