@@ -167,8 +167,8 @@ class FracBox(Box):
     def place(self, L, x, base, scale=1.0):
         bar = base - L.xh * 0.5
         L.marks_out(L.mk.frac_bar(x, x + self.width, bar))
-        self.num.place(L, x + (self.width - self.num.width) / 2, bar - L.xh * 0.35, scale)
-        self.den.place(L, x + (self.width - self.den.width) / 2, bar + L.xh * 1.35, scale)
+        self.num.place(L, x + (self.width - self.num.width) / 2, bar - L.xh * 0.3, scale)
+        self.den.place(L, x + (self.width - self.den.width) / 2, bar + L.xh * 1.3, scale)
 
 
 class SqrtBox(Box):
@@ -198,7 +198,7 @@ class SupBox(Box):
         self.width = inner.width
 
     def place(self, L, x, base, scale=1.0):
-        self.inner.place(L, x, base - L.xh * 0.95, scale)
+        self.inner.place(L, x, base - L.xh * 0.7, scale)
 
 
 class Layouter:
@@ -256,14 +256,14 @@ class Layouter:
                 self.cursor_word += 1
             elif isinstance(t, Sym):
                 if t.kind == "frac":
-                    out.append(FracBox(self, HBox(self, self.boxes(t.args[0], k * 0.8), k * 0.8),
-                                       HBox(self, self.boxes(t.args[1], k * 0.8), k * 0.8)))
+                    out.append(FracBox(self, HBox(self, self.boxes(t.args[0], k * 0.9), k * 0.9),
+                                       HBox(self, self.boxes(t.args[1], k * 0.9), k * 0.9)))
                 elif t.kind == "sqrt":
                     out.append(SqrtBox(self, HBox(self, self.boxes(t.args[0], k), k)))
                 elif t.kind == "circle":
                     out.append(CircleBox(self, HBox(self, self.boxes(t.args[0], k), k)))
                 elif t.kind == "sup":
-                    out.append(SupBox(self, HBox(self, self.boxes(t.args[0], k * 0.65), k * 0.65)))
+                    out.append(SupBox(self, HBox(self, self.boxes(t.args[0], k * 0.8), k * 0.8)))
                 else:
                     out.append(MarkBox(self, t.kind))
         return out
@@ -289,6 +289,15 @@ class Layouter:
         self.margin_walk = 0.85 * self.margin_walk + self.rng.normal(0, 3 + 10 * m)
         self.base_walk = 0.0
 
+    def _tail_fits(self, boxes, bi, x) -> bool:
+        """True when boxes[bi:] is at most two short words that overrun the right margin by less than
+        half the margin: people squeeze a last word or two in rather than start a new line for them."""
+        tail = boxes[bi:]
+        if len(tail) > 2 or not all(isinstance(t, WordBox) and len(t.text) <= 6 for t in tail):
+            return False
+        need = sum(t.width for t in tail) + self.xh * 1.0 * (len(tail) - 1)
+        return x + need < self.right + 0.5 * (self.W - self.right)
+
     def flow(self, boxes, indent=0.0, hang=0.0, first_x=None):
         """Lay boxes left to right, wrapping at the right margin. Returns (x_end, y)."""
         self.line_params()
@@ -297,13 +306,15 @@ class Layouter:
         line_start = x0
         right = self.right - self.rng.uniform(0, self.xh * 2)
         last_gap = 0.0
-        for b in boxes:
+        for bi, b in enumerate(boxes):
             if isinstance(b, SupBox) and last_gap > 0:
                 x -= last_gap - self.xh * 0.15        # a superscript sits right against its base
             over = x + b.width - right
             if (over > 0 and isinstance(b, WordBox) and over < self.look.squeeze * b.width
                     and x + b.width < self.right + self.xh and x > line_start + 1):
                 b.sx = max(0.82, (right - x) / b.width)      # squeezed in rather than wrapped
+            elif (isinstance(b, WordBox) and x > line_start + 1 and self._tail_fits(boxes, bi, x)):
+                pass                                          # the last word or two run into the margin rather than wrap alone
             elif x + b.width > right and x > line_start + 1:
                 self.new_line()
                 self.line_params()
