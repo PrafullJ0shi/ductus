@@ -395,14 +395,27 @@ class RNNEngine:
         self.style, self.bias = style, bias
         self.python = python or os.environ.get("DUCTUS_RNN_PYTHON") or _find_python()
         self.proc = None
+        self.graves = None             # batched PyTorch sampler (graves.py), when its weights load
+        self.rnn_batch = int(os.environ.get("DUCTUS_RNN_BATCH", "8"))
         self.charset: set[str] = set()
         self.round = 0                 # set by the synthesizer: later rounds sample neater
 
     def _start(self):
-        if self.proc is not None:
+        if self.proc is not None or self.graves is not None:
             return
         if not available():
             raise RuntimeError(f"RNN model not found in {model_dir()} (set DUCTUS_RNN_DIR; see engines/rnn)")
+        if os.environ.get("DUCTUS_RNN_BACKEND", "torch") != "worker":
+            try:                       # batched PyTorch sampler, same samples as the worker
+                from .graves import Graves
+                from ... import speed
+                speed.setup()
+                self.graves = Graves(model_dir(), self.python)
+                self.charset = set(self.graves.charset)
+                return
+            except Exception as e:     # no exported weights and no TensorFlow to export them
+                print(f"ductus: batched RNN unavailable ({e}); using the TensorFlow worker", file=sys.stderr)
+                self.graves = None
         self.proc = subprocess.Popen([self.python, str(Path(__file__).with_name("worker.py")), str(model_dir())],
                                      stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL,
                                      text=True, bufsize=1)
@@ -413,10 +426,24 @@ class RNNEngine:
         self._start()
         return all(c in self.charset or c == " " for c in text)
 
-    def strokes(self, text: str, seed: int = 0, bias: float | None = None, style="default"):
+    def _ask(self, qs: list[dict]) -> list[dict]:
+        """Sample a list of lines: one batch on the PyTorch sampler, one by one on the worker."""
         self._start()
+        if self.graves is not None:
+            out = []
+            for i in range(0, len(qs), self.rnn_batch):
+                out += self.graves.lines(qs[i:i + self.rnn_batch])
+            return out
+        out = []
+        for q in qs:
+            self.proc.stdin.write(json.dumps(q) + "\n")
+            out.append(json.loads(self.proc.stdout.readline()))
+        return out
+
+    def _query(self, text: str, seed: int, bias, style, placeholder: bool):
+        """(request, sent text, m_at) for one line."""
         sent, m_at = text, []
-        if self.glyphs != "off" and self.placeholder:
+        if self.glyphs != "off" and placeholder:
             # r, f and a word-initial M or R are written as a tall l (easy to find), then replaced
             sent = "".join("l" if (c in "rf" or (c in "MRHEN" and (i == 0 or text[i - 1] == " ")
                                                   and i + 1 < len(text) and text[i + 1].isalpha())) else c
@@ -429,45 +456,75 @@ class RNNEngine:
                     continue
                 out.append(c)
             sent = "".join(out)
-        keep_text = text if self.placeholder else sent
         q = {"text": sent, "bias": self.bias if bias is None else bias,
              "style": self.style if style == "default" else style, "seed": int(seed)}
-        self.proc.stdin.write(json.dumps(q) + "\n")
-        r = json.loads(self.proc.stdout.readline())
+        return q, sent, m_at
+
+    def _post(self, r: dict, text: str, sent: str, m_at, placeholder: bool):
+        """Reply -> strokes; None when the placeholders cannot be mapped back (write it plainly)."""
         rt = r.get("text", sent)
-        ph = self.glyphs != "off" and self.placeholder
+        ph = self.glyphs != "off" and placeholder
         if rt != sent:
             m_at = []                              # characters were dropped: indices no longer match
-            if ph:                                 # cannot map the placeholders back: write it plainly
-                return self.strokes_plain(text, seed, bias, style)
+            if ph:
+                return None
         else:
-            rt = keep_text
+            rt = text if placeholder else sent
         return to_strokes(np.array(r["coords"], dtype=np.float64), r.get("pos"), rt, self.glyphs, m_at,
-                          placeholder=ph), r["ok"]
+                          placeholder=ph)
+
+    def _plain_query(self, text, seed, bias, style):
+        return {"text": text, "bias": self.bias if bias is None else bias,
+                "style": self.style if style == "default" else style, "seed": int(seed)}
+
+    def _plain_post(self, r, text):
+        return to_strokes(np.array(r["coords"], dtype=np.float64), r.get("pos"), r.get("text", text), "off")
+
+    def strokes(self, text: str, seed: int = 0, bias: float | None = None, style="default"):
+        q, sent, m_at = self._query(text, seed, bias, style, self.placeholder)
+        r = self._ask([q])[0]
+        st = self._post(r, text, sent, m_at, self.placeholder)
+        if st is None:
+            return self.strokes_plain(text, seed, bias, style)
+        return st, r["ok"]
 
     def strokes_plain(self, text, seed, bias, style):
-        q = {"text": text, "bias": self.bias if bias is None else bias,
-             "style": self.style if style == "default" else style, "seed": int(seed)}
-        self.proc.stdin.write(json.dumps(q) + "\n")
-        r = json.loads(self.proc.stdout.readline())
-        return to_strokes(np.array(r["coords"], dtype=np.float64), r.get("pos"), r.get("text", text), "off"), r["ok"]
+        r = self._ask([self._plain_query(text, seed, bias, style)])[0]
+        return self._plain_post(r, text), r["ok"]
 
     def generate(self, texts: list[str], style_img=None, seed: int = 0) -> list[np.ndarray]:
-        out = []
-        for i, t in enumerate(texts):
-            b = self.bias + 0.3 * min(self.round, 4)
-            for k in range(3):                     # a placeholder l left in place reads as l: try again
-                st, _ = self.strokes(t, seed=seed * 101 + i + 7919 * k, bias=b)
-                if not getattr(glyph_strokes, "missing", 0) or not self.placeholder or self.glyphs == "off":
-                    break
-            else:
-                self.placeholder = False           # last resort: redraw the model's own r and f
-                try:
-                    st, _ = self.strokes(t, seed=seed * 101 + i, bias=b)
-                finally:
-                    self.placeholder = True
-            out.append(render_line(st, len(t)))
-        return out
+        """All lines are sampled together (one batch per attempt); the retry rules are those of
+        writing them one at a time: up to three seeds while a placeholder l is left in place,
+        then the model's own r and f redrawn."""
+        b = self.bias + 0.3 * min(self.round, 4)
+        done: dict[int, list] = {}
+        todo = list(range(len(texts)))
+        use_ph = self.placeholder and self.glyphs != "off"
+        for k in range(3 if use_ph else 1):
+            if not todo:
+                break
+            qs = [self._query(texts[i], seed * 101 + i + 7919 * k, b, "default", self.placeholder) for i in todo]
+            rs = self._ask([q for q, _, _ in qs])
+            plain, left = [], []
+            for i, (q, sent, m_at), r in zip(todo, qs, rs):
+                st = self._post(r, texts[i], sent, m_at, self.placeholder)
+                if st is None:
+                    plain.append((i, q["seed"]))
+                elif getattr(glyph_strokes, "missing", 0) and use_ph:
+                    left.append(i)                 # a placeholder l left in place reads as l: try again
+                else:
+                    done[i] = st
+            if plain:
+                prs = self._ask([self._plain_query(texts[i], s_, b, "default") for i, s_ in plain])
+                for (i, _), r in zip(plain, prs):
+                    done[i] = self._plain_post(r, texts[i])
+            todo = left
+        if todo:                                   # last resort: redraw the model's own r and f
+            qs = [self._query(texts[i], seed * 101 + i, b, "default", False) for i in todo]
+            rs = self._ask([q for q, _, _ in qs])
+            for i, (q, sent, m_at), r in zip(todo, qs, rs):
+                done[i] = self._post(r, texts[i], sent, m_at, False)
+        return [render_line(done[i], len(t)) for i, t in enumerate(texts)]
 
     def close(self):
         if self.proc is not None:
