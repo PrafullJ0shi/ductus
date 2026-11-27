@@ -178,8 +178,8 @@ def orient_deskew(a: np.ndarray, reader=None, search: float = 15.0) -> tuple[np.
             if len(cols) > 10:
                 crops.append((255 * (1 - sub[:, cols.min():cols.max() + 1])).astype(np.uint8))
         if crops:
-            _, c0 = reader.read(crops, with_conf=True)
-            _, c1 = reader.read([c[::-1, ::-1].copy() for c in crops], with_conf=True)
+            _, c0 = reader.read(crops, with_conf=True, max_tokens=64)
+            _, c1 = reader.read([c[::-1, ::-1].copy() for c in crops], with_conf=True, max_tokens=64)
             orient_deskew.last = (float(np.mean(c0)), float(np.mean(c1)))
             # a sideways page is as likely one way as the other; an upright-looking page is
             # rarely upside down (phones rotate photos), so it needs a clear OCR margin
