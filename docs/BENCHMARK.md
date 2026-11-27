@@ -321,6 +321,61 @@ Read this honestly:
 - Speed: 85 s for the page (12 s per line) on a lightly loaded machine (load 1 to 4), faster
   than round 3 (38 s per line); template tokens skip the RNN and the read-back.
 
+## Round 6: speed
+
+Same 7-line test and judge. Only the pipeline changed (batched RNN sampler, batched and cascaded
+OCR read-back, thread count from the free cores); the words, seeds and acceptance rules are the
+same. All timings come from a shared 8-core CPU box with no GPU, `--no-cache`, `--seed 0`.
+
+**One ~84-word A4 page** (`ductus write page90.txt --no-cache`, 14 carrier lines in round 1):
+
+| Pipeline | Seconds per page | Carrier lines written | Seconds per carrier line | Words still failing | Load during run |
+|---|---|---|---|---|---|
+| before (TensorFlow RNN worker, one OCR call per crop, trocr-base) | 2,881 | 43 | 67 | 1 | 25 to 35 |
+| same as before but with the batched OCR and thread fix, `--ocr base`, RNN worker | 510 | 43 | 12 | 1 | 4 to 11 |
+| **default** (batched torch RNN, small OCR first, base re-reads rejects) | **167** | 35 | **4.8** | 0 | 4 to 11 |
+| **`--fast`** (small OCR only, 4 rounds, no diffusion) | **37** | 27 | **1.4** | 3 | 4 |
+
+The first row ran at a load of 25 to 35 from other jobs, so part of its time is contention, and
+the rows are not from one idle machine; a like-for-like repeat of the old pipeline under the
+same load was not run (it takes about 48 minutes). The second row is the closest same-load
+comparison to the default: 510 s against 167 s. Where the time went before (profile of the
+first row): OCR read-back 2,606 s of 2,885 s, RNN sampling 203 s, diffusion fallback 54 s.
+Now (default): OCR 118 s (of which the base re-read of 11 rejected crops is 57 s), diffusion
+fallback 42 s, RNN 8 s, page ink 14 s.
+
+**The 7-line benchmark page** (50 words), written with the new pipeline, scored by the same
+trocr-large judge:
+
+| System | norm CER, 4 main lines | short | definition | maths | pangram | caps | digits | symbols (raw) | Seconds |
+|---|---|---|---|---|---|---|---|---|---|
+| round 5 (before) | 0.038 | 0.000 | 0.000 | 0.150 | 0.000 | 0.000 | 0.037 | 0.435 | 85 (idle box) |
+| **default now** | **0.038** | 0.000 | 0.000 | 0.150 | 0.000 | 0.000 | 0.037 | 0.435 | 108 (load 11) |
+| `--fast` | 0.052 | 0.033 | 0.000 | 0.150 | 0.023 | 0.000 | 0.037 | 0.435 | 39 (load 13) |
+
+Default reads the same as round 5 on every line. `--fast` is a draft mode: it left 2 of 50 words
+failing and the judge dropped "Meet" to "met" and read "fox" as "for"; 0.052 against 0.038 is
+two words on a 7-line sample, so treat the difference as real but small.
+
+What made it faster, in order of effect:
+
+1. **OCR read-back** (90% of the old time): all lines and word crops of a chunk are read in two
+   batched calls with `inference_mode` and a token cap, and trocr-small (about 4 times faster)
+   reads first. Only words it rejects because of what it read are re-read by trocr-base, whose
+   verdict stands, so acceptance still follows the base model.
+2. **Threads**: PyTorch used one thread per core. On a loaded box the threads waited on each
+   other: one RNN step took 85 ms with 4 threads and 2 ms with 1, and trocr was slower with 2
+   threads than with 1. The count now follows the free cores (`DUCTUS_THREADS`).
+3. **RNN**: the TensorFlow worker did one session call per pen point, one line at a time, and
+   re-ran the 400 to 900 point style priming for each line. The PyTorch port samples lines as one
+   batch, primes once per style and gave the same strokes as the worker on 4 test lines
+   (identical to 1e-2 at every point; `tests/test_speed.py`, `DUCTUS_SLOW_TESTS=1`).
+4. **GPU**: CUDA or Apple MPS is used automatically for the OCR, the RNN and the diffusion
+   fallback (`DUCTUS_DEVICE` forces one). It is untested here, because the box has no GPU.
+
+Tried and rejected: int8 dynamic quantisation of trocr-base (16 of 16 word reads changed, mostly
+to unrelated words) and a bigger OCR batch on the CPU (slower than one crop at a time under load).
+
 ## Raw data
 
 Per-system numbers: [`benchmark/metrics.csv`](../benchmark/metrics.csv). Systems and settings:
@@ -332,6 +387,6 @@ checkouts are not in the repository.
 - n = 7 lines, one sample each. A single bad word moves a line's CER by 10 to 15 points.
 - The OCR judge rewards printed-looking text and cannot read drawn marks (arrows, stacked
   fractions), which works against ductus's notes and maths layout.
-- Speed was measured under heavy load from other jobs and should be re-measured on an idle
-  machine.
+- Speed was measured under load from other jobs (round 6 has the numbers and the loads) and
+  should be re-measured on an idle machine; GPU speed has not been measured at all.
 - The sjvasquez result uses our TF2 port, not the original TF 1.6 environment.

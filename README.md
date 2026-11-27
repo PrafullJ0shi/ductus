@@ -33,7 +33,9 @@ Early, and small. What is true today:
 - It reads well on plain prose. On the 7-line test in [docs/BENCHMARK.md](docs/BENCHMARK.md) it
   is level with fonts on the prose lines but behind a handwriting font and the 2018 RNNs on
   average, mostly because of the maths line.
-- It is slow on a CPU compared with fonts and RNNs, because of the OCR read-back.
+- It is slow on a CPU compared with fonts and RNNs, because of the OCR read-back: an 84-word
+  page took 167 s by default and 37 s with `--fast` on a shared 8-core box
+  ([round 6](docs/BENCHMARK.md#round-6-speed)).
 - It never repeats an identical letter shape (glyph twin rate 0.000 in the benchmark); fonts
   do.
 - Maths and notes layouts, a personal style profile and a phone-photo look are things the
@@ -258,8 +260,8 @@ ways the project can pay for its own compute.
 2. **Full character set.** Train the content encoder on a wider glyph set so `=`, `%`, `@`,
    `<`, `>`, accented Latin and currency signs are written by the model instead of drawn as
    marks or replaced.
-3. **GPU and Apple Silicon paths.** CUDA and MPS back ends with half precision and a batched
-   DDIM sampler: a page in seconds instead of minutes.
+3. **GPU timings and half precision.** CUDA and MPS are used automatically when present but
+   have not been timed; half precision and a batched DDIM sampler are not done.
 4. **Stroke output.** Vectorise generated words into centre-line pen paths, so pen plotters
    (AxiDraw and similar) can write the page with a real pen, and the animated SVG follows the
    real stroke order.

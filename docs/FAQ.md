@@ -3,8 +3,11 @@
 ## Setup
 
 **Does it need a GPU?**
-No. Everything runs on a CPU. GPU and Apple Silicon paths are on the roadmap in the
-[README](../README.md#v2-roadmap); there are no GPU timings in this repository.
+No. Everything runs on a CPU. If PyTorch can see a CUDA or Apple (MPS) GPU, the OCR read-back,
+the RNN sampler and the diffusion fallback use it automatically (`DUCTUS_DEVICE=cpu` turns that
+off). That path is written but has not been timed: this repository has no GPU numbers. The
+read-back and the RNN are small models run step by step, so expect a GPU to help most with the
+diffusion fallback and the OCR, and less than for a big model.
 
 **Does it need an account or a login?**
 No. The DiffBrush checkpoint comes from a public Google Drive link, and the Stable Diffusion
@@ -25,13 +28,23 @@ works but is slower and less readable. With `--engine rnn` it stops with an erro
 ## Speed
 
 **How long does a page take?**
-It depends on the machine and the writer. In [round 2 of the benchmark](BENCHMARK.md#round-2-after-the-readability-changes),
-a 50-word test page took 158 s (23 s per line) on an 8-core CPU with the default writer,
-against about 390 s per line for the diffusion-only version under heavier load. The OCR read-back
-and model loading take most of the time. Treat these as examples, not promises.
+On a shared 8-core CPU, an 84-word A4 page took 167 s by default and 37 s with `--fast`, against
+2,881 s before the speed work ([round 6](BENCHMARK.md#round-6-speed): the old figure was
+measured under a heavier load, so the gain is smaller than 17 times for an idle machine; the
+closest same-load comparison is 510 s to 167 s). Pages after the first in one run reuse the
+loaded models. Treat these as examples, not promises.
+
+**Why is it slow, and what makes it faster?**
+Almost all the time is the OCR read-back that checks every word and rewrites the ones that
+fail. The default reads with a small model first and asks the larger one only about words the
+small one rejects. Fewer rewrite rounds, `--fast` and `--budget` trade a few rough words for
+time. On a busy machine, fewer threads can be faster: set `DUCTUS_THREADS`.
 
 **How do I make a draft faster?**
-Use `--no-verify` to skip the OCR read-back (more mistakes). Words are cached under
+Use `--fast` (small OCR only, 4 rewrite rounds, no diffusion fallback: 4 to 5 times faster, a
+few more rough words; 2 to 3 of 84 words failed in the test), `--budget SECONDS` to stop
+starting new rewrite rounds, or `--no-verify` to skip the read-back entirely (more mistakes).
+Words are cached under
 `~/.cache/ductus/words`, so changing only the pen, paper, photo or ink model re-renders
 without writing the words again. `--steps` only affects the diffusion writer.
 
