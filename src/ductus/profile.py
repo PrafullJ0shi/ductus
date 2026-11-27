@@ -170,7 +170,7 @@ def orient_deskew(a: np.ndarray, reader=None, search: float = 15.0) -> tuple[np.
             best = (sh, b, r, ang)
     _, a, rot, ang = best
     if reader is not None:
-        spans = sorted(find_text_lines(a), key=lambda r: -a[r[0]:r[1]].sum())[:4]
+        spans = sorted(find_text_lines(a), key=lambda r: -a[r[0]:r[1]].sum())[:8]
         crops = []
         for y0, y1 in spans:
             sub = a[y0:y1]
@@ -180,7 +180,11 @@ def orient_deskew(a: np.ndarray, reader=None, search: float = 15.0) -> tuple[np.
         if crops:
             _, c0 = reader.read(crops, with_conf=True)
             _, c1 = reader.read([c[::-1, ::-1].copy() for c in crops], with_conf=True)
-            if float(np.mean(c1)) > float(np.mean(c0)) + 0.02:
+            orient_deskew.last = (float(np.mean(c0)), float(np.mean(c1)))
+            # a sideways page is as likely one way as the other; an upright-looking page is
+            # rarely upside down (phones rotate photos), so it needs a clear OCR margin
+            need = 0.02 if rot == 90 else 0.15
+            if float(np.mean(c1)) > float(np.mean(c0)) + need:
                 a, rot = a[::-1, ::-1].copy(), rot + 180
     return a, rot, ang
 
