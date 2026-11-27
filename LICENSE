@@ -19,21 +19,3 @@ AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
 LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
-
----------------------------------------------------------------------------
-Third-party components
-
-src/ductus/engines/diffbrush/*.py  - from DiffBrush (Gang Dai et al.), MIT.
-                                     See src/ductus/engines/diffbrush/LICENSE-DiffBrush.
-src/ductus/engines/diffbrush/glyphs.npz - 16x16 glyphs for 80 ASCII characters taken
-                                     from GNU Unifont via DiffBrush (Unifont: SIL OFL 1.1 /
-                                     GPLv2+ with font embedding exception).
-src/ductus/presets/*.png           - rendered from strokes sampled with the pretrained RNN of
-                                     Grzego/handwriting-generation (MIT).
-
-Model weights are NOT included. They are downloaded on first use:
-  DiffBrush checkpoint  - released by its authors; trained on the IAM Handwriting
-                          Database, whose terms allow non-commercial research use.
-  Stable Diffusion 1.5 VAE - CreativeML OpenRAIL-M.
-  TrOCR base handwritten   - MIT (Microsoft).
-Check those terms before any commercial use of generated output.
