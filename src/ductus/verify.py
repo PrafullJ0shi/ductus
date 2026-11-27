@@ -9,6 +9,7 @@ from __future__ import annotations
 import numpy as np
 
 OCR_MODEL = "microsoft/trocr-base-handwritten"   # MIT licence
+OCR_SMALL = "microsoft/trocr-small-handwritten"  # MIT licence; about 4x faster on a CPU, first pass
 
 
 def levenshtein(a: str, b: str) -> int:
@@ -57,25 +58,47 @@ def normalise(s: str) -> str:
 
 
 class Reader:
+    batch = 16    # crops per forward pass on a GPU; on a CPU see __init__
+
     def __init__(self, model: str = OCR_MODEL):
         import torch
         from transformers import TrOCRProcessor, VisionEncoderDecoderModel
+        from . import speed
+        speed.setup()
         self.torch = torch
+        self.device = speed.device()
         self.proc = TrOCRProcessor.from_pretrained(model)
-        self.model = VisionEncoderDecoderModel.from_pretrained(model).eval()
+        self.model = VisionEncoderDecoderModel.from_pretrained(model).eval().to(self.device)
+        if self.device.type == "cpu":
+            # on a busy CPU one crop at a time was faster than a padded batch (44 s against
+            # 62 s for 16 word crops with one thread); with free cores small batches help
+            self.batch = 1 if torch.get_num_threads() <= 2 else 4
 
-    def read(self, grays: list[np.ndarray], with_conf: bool = False):
-        """OCR a batch of grayscale crops (dark ink on white)."""
+    def read(self, grays: list[np.ndarray], with_conf: bool = False, max_tokens=None):
+        """OCR a batch of grayscale crops (dark ink on white). max_tokens (one value or one
+        per crop) stops a read early: a crop that reads as more tokens than its target has
+        characters fails anyway, and garbage reads otherwise run to 64 tokens."""
+        if isinstance(max_tokens, (list, tuple)) and len(grays) <= self.batch:
+            max_tokens = max(max_tokens) if max_tokens else None
+        if len(grays) > self.batch:
+            mt = max_tokens if isinstance(max_tokens, (list, tuple)) else [max_tokens] * len(grays)
+            parts = [self.read(grays[i:i + self.batch], with_conf, mt[i:i + self.batch])
+                     for i in range(0, len(grays), self.batch)]
+            if not with_conf:
+                return [t for p in parts for t in p]
+            return [t for p in parts for t in p[0]], [c for p in parts for c in p[1]]
+        if not grays:
+            return ([], []) if with_conf else []
         from PIL import Image
         ims = []
         for g in grays:
             g = np.pad(g, 8, constant_values=255)
             ims.append(Image.fromarray(g.astype(np.uint8)).convert("RGB"))
-        px = self.proc(images=ims, return_tensors="pt").pixel_values
-        with self.torch.no_grad():
-            out = self.model.generate(px, max_new_tokens=64, num_beams=1,
+        px = self.proc(images=ims, return_tensors="pt").pixel_values.to(self.device)
+        with self.torch.inference_mode():
+            out = self.model.generate(px, max_new_tokens=min(64, int(max_tokens or 64)), num_beams=1,
                                       output_scores=with_conf, return_dict_in_generate=True)
-        texts = self.proc.batch_decode(out.sequences, skip_special_tokens=True)
+        texts = self.proc.batch_decode(out.sequences.cpu(), skip_special_tokens=True)
         if not with_conf:
             return texts
         # mean max-probability of emitted tokens = a simple legibility proxy
@@ -83,5 +106,5 @@ class Reader:
         P = self.torch.stack(probs, 1)  # [B, T]
         seq = out.sequences[:, 1:]
         mask = (seq != self.proc.tokenizer.pad_token_id).float()[:, : P.shape[1]]
-        conf = ((P * mask).sum(1) / mask.sum(1).clamp(min=1)).tolist()
+        conf = ((P * mask).sum(1) / mask.sum(1).clamp(min=1)).cpu().tolist()
         return texts, conf

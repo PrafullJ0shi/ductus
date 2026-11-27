@@ -89,6 +89,9 @@ class Options:
     border: str = "none"            # none | box | box-margin | margin (hand-ruled border and margin line, see border.py)
     border_inset: float = 12.0       # distance of the box from the paper edge, mm
     border_header: float = 0.0       # mm from the top edge for a line under the heading area (0 = none)
+    ocr: str = "cascade"             # read-back: cascade (small model first, base for rejects) | base | small
+    fast: bool = False               # draft speed: small OCR only, fewer rewrite rounds, no diffusion fallback
+    budget: float | None = None      # seconds after which no new rewrite round starts (best attempt kept)
     log: object = print
 
 
@@ -108,10 +111,33 @@ class Writer:
         self.steps = steps
         self._diff = None
         self._rnn = {}
-        self.reader = None
-        if verify:
-            from .verify import Reader
-            self.reader = Reader()
+        self._readers = {}
+        self.verify = verify
+
+    def ocr(self, which: str = "base"):
+        """OCR models, loaded once per process: base (trocr-base) or small (trocr-small)."""
+        if not self.verify:
+            return None
+        if which not in self._readers:
+            from .verify import Reader, OCR_MODEL, OCR_SMALL
+            self._readers[which] = Reader(OCR_SMALL if which == "small" else OCR_MODEL)
+        return self._readers[which]
+
+    @property
+    def reader(self):
+        return self.ocr("base")
+
+    def readers(self, o: "Options"):
+        """(first reader, checker) for the options: the fast small model first and the base
+        model for what it rejects (cascade, default), one model alone, or nothing."""
+        if not (self.verify and o.verify):
+            return None, None
+        mode = "small" if o.fast else o.ocr
+        if mode == "base":
+            return self.ocr("base"), None
+        if mode == "small":
+            return self.ocr("small"), None
+        return self.ocr("small"), self.ocr("base")
 
     @property
     def engine(self):
@@ -139,6 +165,8 @@ class Writer:
             if not R.available():
                 raise RuntimeError("--engine rnn needs the RNN model; see src/ductus/engines/rnn/__init__.py")
             eng = self.rnn(o.rnn_style, o.rnn_bias); eng.glyphs = o.glyphs
+            if getattr(o, "fast", False):
+                return eng, None, 4      # draft: four RNN rounds, no diffusion model to load
             return eng, self.engine_lazy(), 8 if o.glyphs == "cursive" else 4   # then diffusion for what still fails
         if mode == "auto" and R.available():
             eng = self.rnn(o.rnn_style, o.rnn_bias); eng.glyphs = o.glyphs
@@ -167,6 +195,8 @@ class Writer:
             if o.look == "neat":
                 look.mess = min(look.mess, 0.2)
         _match_reference(look, refs, prof)
+        from .realism import knobs as KN
+        look.pitch *= float(KN.get("pitch_x", 1.0))
         if o.ink:
             look.ink = o.ink
         if o.corrections is not None:
@@ -204,7 +234,8 @@ class Writer:
                 continue
             ref = refs[ci % len(refs)]
             prim, fb, pr = self.engines(o)
-            syn = Synthesizer(prim, ref, self.reader if o.verify else None, fallback=fb, primary_rounds=pr, fallback_all=o.engine == "auto", max_cer=max_cer,
+            rd, chk = self.readers(o)
+            syn = Synthesizer(prim, ref, rd, checker=chk, deadline=(t0 + o.budget) if o.budget else None, fallback=fb, primary_rounds=pr, fallback_all=o.engine == "auto", max_cer=max_cer,
                               loose=personal, seed=o.seed * 1000 + ci * 37, log=o.log,
                               strict=strict, rounds=(pr + 2) if fb is not None and pr < 99 else (5 if o.look == "neat" else 4), plain=_plain_letters(o), letter_profile=_letters(o.style), templates=o.glyphs != "off", mess=look.mess)
             words += syn.run([texts[i] for i in idx])
@@ -295,7 +326,8 @@ def _stroke_px(look: Look, pen=None, o: Options | None = None, prof: dict | None
     from .layout import MM
     ref = getattr(look, "_ref_stroke_xh", None)
     if prof and ref and not (o and (o.pen or o.tip)):
-        mm = float(np.clip(ref * look.xh_mm, 0.25, 0.75))
+        from .realism import knobs as KN
+        mm = float(np.clip(ref * look.xh_mm * float(KN.get("stroke_x", 1.0)), 0.2, 0.75))
     elif pen is not None:
         mm = pen.line_mm
     else:
@@ -333,7 +365,8 @@ def write_lines(writer: "Writer", lines: list[str], o: Options) -> tuple[list[np
     flat = [w for ws in per_line for w in ws]
     max_cer = _max_cer(o, prof)
     prim, fb, pr = writer.engines(o)
-    syn = Synthesizer(prim, refs[0], writer.reader if o.verify else None, fallback=fb, primary_rounds=pr, fallback_all=o.engine == "auto", max_cer=max_cer,
+    rd, chk = writer.readers(o)
+    syn = Synthesizer(prim, refs[0], rd, checker=chk, fallback=fb, primary_rounds=pr, fallback_all=o.engine == "auto", max_cer=max_cer,
                       loose=bool(prof), seed=o.seed, log=o.log,
                       strict=o.legibility != "loose", rounds=(pr + 2) if fb is not None and pr < 99 else (5 if o.look == "neat" else 4), plain=_plain_letters(o), letter_profile=_letters(o.style), templates=o.glyphs != "off", mess=look.mess)
     ckey = _cache_key(["lines"] + flat, o, max_cer, o.steps)
@@ -413,7 +446,8 @@ def _cache_key(texts, o, max_cer, steps) -> str:
         f = sp / "profile.json" if sp.is_dir() else sp
         if f.exists():
             sig = [o.style, hashlib.sha1(f.read_bytes()).hexdigest()]
-    k = json.dumps([CACHE_VERSION, o.engine, o.rnn_style, o.rnn_bias, o.glyphs, texts, sig, o.look, o.seed, max_cer, o.verify, steps, o.mode, o.plain, o.legibility], default=str)
+    k = json.dumps([CACHE_VERSION, o.engine, o.rnn_style, o.rnn_bias, o.glyphs, texts, sig, o.look, o.seed, max_cer, o.verify, steps, o.mode, o.plain, o.legibility,
+                    "small" if o.fast else o.ocr, o.fast], default=str)
     return hashlib.sha1(k.encode()).hexdigest()
 
 

@@ -89,6 +89,12 @@ class WordImage:
 
 
 _DEBUG = bool(__import__("os").environ.get("DUCTUS_DEBUG"))
+def _cap(text: str) -> int:
+    """Token cap for reading a crop of `text`: every token is at least one character, so a
+    read this long is already wrong; stopping there saves the decoder steps of garbage reads."""
+    return len(text) + 10
+
+
 SOLO = re.compile(r"^[(\[]?[0-9A-Za-z]{1,2}[).\]]$|^-?[0-9]{1,3}$|^[A-Za-z]$")   # tiny tokens: own line
 
 
@@ -111,6 +117,8 @@ class Synthesizer:
     plain: str = "abcdefghijklmnopqrstuvwxyz"   # letters that must use the plain form (no closed loops); "" = off
     stats: dict = field(default_factory=dict)
     templates: bool = False        # numbers, symbols and capital-only tokens drawn from printglyphs
+    checker: object | None = None  # larger OCR model that re-reads what `reader` (a fast one) rejects
+    deadline: float | None = None  # time.time() after which no new rewrite round starts
     mess: float = 0.3
 
     def _carriers(self, words: list[tuple[int, str]], rng: random.Random):
@@ -178,6 +186,9 @@ class Synthesizer:
         for rnd in range(self.rounds):
             if not pending:
                 break
+            if rnd and self.deadline is not None and __import__("time").time() > self.deadline:
+                self.log(f"time budget reached: {len(pending)} words keep their best attempt")
+                break
             eng = self.engine if (rnd < self.primary_rounds or self.fallback is None) else self.fallback
             todo = pending
             if eng is self.engine and self.fallback is not None and hasattr(eng, "supported"):
@@ -196,6 +207,9 @@ class Synthesizer:
                 seed += 1
                 imgs = eng.generate([c[1] for c in chunk], self.style_img, seed=seed)
                 gen_lines += len(chunk)
+                # split every line of the chunk first, then read all lines and all word
+                # crops in two batched OCR calls (one call per crop was most of the time)
+                prepped = []
                 for (group, full), img in zip(chunk, imgs):
                     a = clean_line(img)
                     n_full = len(full.split())
@@ -206,11 +220,6 @@ class Synthesizer:
                         continue
                     bl, xh = baseline_and_xheight(a)
                     real = spans[:len(group)]
-                    read_words = None
-                    if self.reader is not None:
-                        x_end = min(img.shape[1], real[-1][1] + 6)
-                        line_read = self.reader.read([img[:, :x_end]])[0]
-                        read_words = align_words([w for _, w in group], line_read.split())
                     ink_w = real[-1][1] - real[0][0]
                     chars = sum(len(w) for _, w in group) + len(group) - 1
                     cw = ink_w / max(1, chars)             # mean character width on this line
@@ -226,83 +235,145 @@ class Synthesizer:
                         if getattr(eng, "glyphs", "") == "cursive" and w.isalpha():
                             rgb[sub <= 0] = 255 if rgb.dtype == np.uint8 else 1.0
                         items.append((wid, w, sub, rgb, k, ratio))
+                    prepped.append((group, img, bl, xh, real, cw, items))
+                line_reads = word_reads_all = None
+                if self.reader is not None and prepped:
+                    line_reads = self.reader.read([img[:, :min(img.shape[1], real[-1][1] + 6)]
+                                                   for group, img, bl, xh, real, cw, items in prepped],
+                                                  max_tokens=[_cap(" ".join(w for _, w in p_[0])) for p_ in prepped])
                     # word-level read-back as a second opinion (catches split errors and
                     # misspellings the line-level language prior quietly corrects)
-                    word_reads = None
-                    if self.reader is not None and items:
-                        word_reads = self.reader.read([it[3] for it in items])
+                    word_reads_all = self.reader.read([it[3] for p_ in prepped for it in p_[6]],
+                                                      max_tokens=[_cap(it[1]) for p_ in prepped for it in p_[6]])
+                scored = []
+                wpos = 0
+                for li, (group, img, bl, xh, real, cw, items) in enumerate(prepped):
+                    read_words = word_reads = None
+                    if line_reads is not None:
+                        read_words = align_words([w for _, w in group], line_reads[li].split())
+                        if items:
+                            word_reads = word_reads_all[wpos:wpos + len(items)]
+                            wpos += len(items)
                     for n, (wid, w, sub, _, k, ratio) in enumerate(items):
-                        if read_words is not None:
-                            nos = (lambda x: x.replace(" ", "")) if " " not in w else (lambda x: x)
-                            e_line = self._accept(w, nos(read_words[k]) if len(group) == 1 else read_words[k])
-                            e_word = self._accept(w, nos(word_reads[n])) if (len(normalise(w)) >= 3 or any(c.isdigit() for c in w)) else e_line
-                            err = max(e_line, e_word) if self.strict else 0.5 * (e_line + e_word)
-                            lw = normalise(w)
-                            if (self._glyph_mode == "cursive" and lw and not any(c.isdigit() for c in w)
-                                    and sum(c in "rf" for c in lw) >= 0.4 * len(lw)
-                                    and abs(len(re.sub(r"[^a-z]", "", normalise(word_reads[n]))) - len(lw)) <= 1):
-                                err = e_line     # isolated word OCR cannot read the cursive r/f; the line read can
-                        else:
-                            err = 0.0
-                        if (self._glyph_mode == "cursive" and word_reads and w.isalpha()
-                                and any(c in "rf" for c in w.lower())):
-                            # the redraw must not eat a neighbour ("of" -> "cf"): the other letters
-                            # have to be in the single-word read, in order
-                            core = [c for c in w.lower() if c not in "rf"]
-                            rd = re.sub(r"[^a-z]", "", word_reads[n].lower())
-                            miss = len(core) - _lcs(core, rd)
-                            if miss > (1 if len(core) > 4 else 0) or len(rd) > len(w) + 1:
-                                err = max(err, 0.5)
-                                self.stats["core_rejects"] = self.stats.get("core_rejects", 0) + 1
-                        if (w[:1].isupper() and not w.isupper() and read_words is not None and word_reads
-                                and read_words[k][:1].islower() and word_reads[n].lstrip("#&*.,'\" ")[:1].islower()):
-                            err = max(err, 0.5)          # the capital came out as a small letter ("Note" -> "note")
-                            self.stats["cap_misread"] = self.stats.get("cap_misread", 0) + 1
-                        for cap_, wrong_ in (("M", "H"), ("R", "P")):
-                            if cap_ in w and read_words is not None:
-                                # capital M that reads as H ("Hean"), R as P ("Pange"): write it again
-                                reads = [read_words[k], word_reads[n] if word_reads else ""]
-                                if any(x and wrong_ in x and x.count(cap_) < w.count(cap_) for x in reads):
-                                    err = max(err, 0.6)
-                                    self.stats["cap_misread"] = self.stats.get("cap_misread", 0) + 1
-                        lo, hi = (0.55, 1.9) if self.strict and not self.loose else (0.4, 2.4)
-                        if not (lo <= ratio <= hi) and len(w) >= 3:
-                            err = max(err, 1.0)          # the split put this word in the wrong span
-                        elif len(w) <= 2 and ratio > 2.6:
-                            err = max(err, 1.0)          # a short token whose crop holds more than itself
-                        if self.plain and any(c in self.plain for c in w):
-                            fl = flourishes(sub, w, bl, float(np.clip(cw * getattr(eng, "xh_per_cw", 1.15), 0.5 * xh, 1.5 * xh)), set(self.plain),
-                                            self.letter_profile)
-                            if fl:
-                                err = max(err, max(0.6, self.max_cer + 0.05))   # looped f/r etc: write it again
-                                self.stats["flourish_rejects"] = self.stats.get("flourish_rejects", 0) + 1
-                        if _DEBUG:
-                            print(f"word {w!r} line={read_words[k] if read_words else None!r} "
-                                  f"word={word_reads[n] if word_reads else None!r} ratio={ratio:.2f} err={err:.2f}", file=sys.stderr)
-                        r = read_words[k] if read_words is not None else ""
-                        # size by mean letter width: the row-profile x-height is fooled by ascenders
-                        wxh = float(np.clip(cw * getattr(eng, "xh_per_cw", 1.15), 0.5 * xh, 1.5 * xh))
-                        wbl = bl
-                        if getattr(eng, "per_word_xh", False):
-                            wbl, wxh = word_band(sub, wxh, bl)   # RNN lines drift: own baseline and size
-                        cand = WordImage(w, sub, wbl, wxh, 1.0 - err, r)
-                        if _DEBUG:
-                            import os
-                            from PIL import Image as _I
-                            os.makedirs("/tmp/dbg_words", exist_ok=True)
-                            _I.fromarray((255 - np.clip(sub, 0, 1) * 255).astype(np.uint8)).save(f"/tmp/dbg_words/r{rnd}_{wid}_{w}.png")
-                        if wid not in best or cand.score > best[wid].score:
-                            best[wid] = cand
+                        err = self._score(eng, group, w, k, n, read_words, word_reads, sub, bl, xh, cw, ratio)
+                        scored.append([li, n, err, read_words[k] if read_words is not None else ""])
+                if self.checker is not None and line_reads is not None:
+                    self._recheck(eng, prepped, scored)
+                for li, n, err, r in scored:
+                    group, img, bl, xh, real, cw, items = prepped[li]
+                    wid, w, sub, _, k, ratio = items[n]
+                    # size by mean letter width: the row-profile x-height is fooled by ascenders
+                    wxh = float(np.clip(cw * getattr(eng, "xh_per_cw", 1.15), 0.5 * xh, 1.5 * xh))
+                    wbl = bl
+                    if getattr(eng, "per_word_xh", False):
+                        wbl, wxh = word_band(sub, wxh, bl)   # RNN lines drift: own baseline and size
+                    cand = WordImage(w, sub, wbl, wxh, 1.0 - err, r)
+                    if _DEBUG:
+                        import os
+                        from PIL import Image as _I
+                        os.makedirs("/tmp/dbg_words", exist_ok=True)
+                        _I.fromarray((255 - np.clip(sub, 0, 1) * 255).astype(np.uint8)).save(f"/tmp/dbg_words/r{rnd}_{wid}_{w}.png")
+                    if wid not in best or cand.score > best[wid].score:
+                        best[wid] = cand
             pending = [(wid, w) for wid, w in pending
                        if wid not in best or (1.0 - best[wid].score) > self.max_cer]
         self.stats = {"flourish_rejects": self.stats.get("flourish_rejects", 0), "lines_generated": gen_lines, "words": len(texts),
                       "template_words": sum(1 for v in best.values() if v.template),
-                      "still_failing": len(pending), "rounds_used": rnd + 1}
+                      "still_failing": len(pending), "rounds_used": rnd + 1,
+                      "rechecked": self.stats.get("rechecked", 0)}
         missing = [wid for wid, _ in enumerate(texts) if wid not in best]
         if missing:
             raise RuntimeError(f"could not synthesise {len(missing)} words, e.g. {texts[missing[0]]!r}")
         return [best[i] for i in range(len(texts))]
 
+
+    def _recheck(self, eng, prepped, scored) -> None:
+        """Second reader for the words the fast first reader rejected. The first pass reads
+        with a small OCR model (several times faster); a word it reads right is legible. A word
+        it rejects only because of what it read is read again, line and word, by the larger
+        model, whose verdict then stands. Rejections that do not depend on the reading (split
+        errors, looped letters) are not re-read."""
+        redo = []
+        for j, (li, n, err, _) in enumerate(scored):
+            if err <= self.max_cer:
+                continue
+            group, img, bl, xh, real, cw, items = prepped[li]
+            wid, w, sub, _, k, ratio = items[n]
+            ideal = self._score(eng, group, w, k, n, [x for _, x in group], [it[1] for it in items],
+                                sub, bl, xh, cw, ratio, count=False)
+            if ideal <= self.max_cer:
+                redo.append(j)
+        if not redo:
+            return
+        lines = sorted({scored[j][0] for j in redo})
+        lr = self.checker.read([prepped[li][1][:, :min(prepped[li][1].shape[1], prepped[li][4][-1][1] + 6)] for li in lines],
+                               max_tokens=[_cap(" ".join(w for _, w in prepped[li][0])) for li in lines])
+        line_read = {li: align_words([w for _, w in prepped[li][0]], t.split()) for li, t in zip(lines, lr)}
+        wr = self.checker.read([prepped[scored[j][0]][6][scored[j][1]][3] for j in redo],
+                               max_tokens=[_cap(prepped[scored[j][0]][6][scored[j][1]][1]) for j in redo])
+        self.stats["rechecked"] = self.stats.get("rechecked", 0) + len(redo)
+        for j, wread in zip(redo, wr):
+            li, n, _, _ = scored[j]
+            group, img, bl, xh, real, cw, items = prepped[li]
+            wid, w, sub, _, k, ratio = items[n]
+            word_reads = [it[1] for it in items]       # only item n is looked at
+            word_reads[n] = wread
+            err = self._score(eng, group, w, k, n, line_read[li], word_reads, sub, bl, xh, cw, ratio)
+            scored[j][2], scored[j][3] = err, line_read[li][k]
+
+    def _score(self, eng, group, w, k, n, read_words, word_reads, sub, bl, xh, cw, ratio, count=True) -> float:
+        """Acceptance error of one word crop from its line and word reads and its shape."""
+        def bump(key):
+            if count:
+                self.stats[key] = self.stats.get(key, 0) + 1
+        if read_words is not None:
+            nos = (lambda x: x.replace(" ", "")) if " " not in w else (lambda x: x)
+            e_line = self._accept(w, nos(read_words[k]) if len(group) == 1 else read_words[k])
+            e_word = self._accept(w, nos(word_reads[n])) if (len(normalise(w)) >= 3 or any(c.isdigit() for c in w)) else e_line
+            err = max(e_line, e_word) if self.strict else 0.5 * (e_line + e_word)
+            lw = normalise(w)
+            if (self._glyph_mode == "cursive" and lw and not any(c.isdigit() for c in w)
+                    and sum(c in "rf" for c in lw) >= 0.4 * len(lw)
+                    and abs(len(re.sub(r"[^a-z]", "", normalise(word_reads[n]))) - len(lw)) <= 1):
+                err = e_line     # isolated word OCR cannot read the cursive r/f; the line read can
+        else:
+            err = 0.0
+        if (self._glyph_mode == "cursive" and word_reads and w.isalpha()
+                and any(c in "rf" for c in w.lower())):
+            # the redraw must not eat a neighbour ("of" -> "cf"): the other letters
+            # have to be in the single-word read, in order
+            core = [c for c in w.lower() if c not in "rf"]
+            rd = re.sub(r"[^a-z]", "", word_reads[n].lower())
+            miss = len(core) - _lcs(core, rd)
+            if miss > (1 if len(core) > 4 else 0) or len(rd) > len(w) + 1:
+                err = max(err, 0.5)
+                bump("core_rejects")
+        if (w[:1].isupper() and not w.isupper() and read_words is not None and word_reads
+                and read_words[k][:1].islower() and word_reads[n].lstrip("#&*.,'\" ")[:1].islower()):
+            err = max(err, 0.5)          # the capital came out as a small letter ("Note" -> "note")
+            bump("cap_misread")
+        for cap_, wrong_ in (("M", "H"), ("R", "P")):
+            if cap_ in w and read_words is not None:
+                # capital M that reads as H ("Hean"), R as P ("Pange"): write it again
+                reads = [read_words[k], word_reads[n] if word_reads else ""]
+                if any(x and wrong_ in x and x.count(cap_) < w.count(cap_) for x in reads):
+                    err = max(err, 0.6)
+                    bump("cap_misread")
+        lo, hi = (0.55, 1.9) if self.strict and not self.loose else (0.4, 2.4)
+        if not (lo <= ratio <= hi) and len(w) >= 3:
+            err = max(err, 1.0)          # the split put this word in the wrong span
+        elif len(w) <= 2 and ratio > 2.6:
+            err = max(err, 1.0)          # a short token whose crop holds more than itself
+        if self.plain and any(c in self.plain for c in w):
+            fl = flourishes(sub, w, bl, float(np.clip(cw * getattr(eng, "xh_per_cw", 1.15), 0.5 * xh, 1.5 * xh)), set(self.plain),
+                            self.letter_profile)
+            if fl:
+                err = max(err, max(0.6, self.max_cer + 0.05))   # looped f/r etc: write it again
+                bump("flourish_rejects")
+        if _DEBUG:
+            print(f"word {w!r} line={read_words[k] if read_words else None!r} "
+                  f"word={word_reads[n] if word_reads else None!r} ratio={ratio:.2f} err={err:.2f}", file=sys.stderr)
+        return err
 
 def word_band(alpha: np.ndarray, line_xh: float, line_bl: float) -> tuple[float, float]:
     """(baseline, x-height) of one word from its own ink. Rows are scored by how many strokes

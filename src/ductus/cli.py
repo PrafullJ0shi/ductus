@@ -25,6 +25,7 @@ def cmd_write(a):
                 corrections=a.corrections, pen=a.pen, tip=a.tip, weight=a.weight,
                 flat_ink=a.flat_ink, ink_model=a.ink_model, humanize=a.humanize, size=a.size,
                 border=a.border, border_inset=a.border_inset, border_header=a.border_header,
+                ocr=a.ocr, fast=a.fast, budget=a.budget,
                 log=(lambda *x: None) if a.quiet else (lambda *x: print(*x, file=sys.stderr)))
     w = Writer(steps=a.steps, verify=not a.no_verify)
     r = w.write(text, o)
@@ -110,6 +111,11 @@ def main(argv=None):
     w.add_argument("--max-cer", type=float, help="OCR acceptance threshold")
     w.add_argument("--corrections", type=float, help="share of words written wrong then struck out")
     w.add_argument("--no-verify", action="store_true", help="skip the OCR read-back check")
+    w.add_argument("--fast", action="store_true",
+                   help="draft speed: small OCR model only, 4 rewrite rounds, no diffusion fallback (a few more rough words)")
+    w.add_argument("--ocr", default="cascade", choices=["cascade", "base", "small"],
+                   help="read-back model: cascade (default; small model first, trocr-base re-reads its rejects), base (old, slower) or small")
+    w.add_argument("--budget", type=float, help="seconds after which no new rewrite round starts; words keep their best attempt")
     w.add_argument("--engine", default="default", choices=["default", "rnn", "diffusion", "auto"],
                    help="default: RNN letters (plain, readable, fast) when installed, else diffusion; "
                         "diffusion: letter shapes copied from --style; auto: diffusion, RNN for words that do not read")

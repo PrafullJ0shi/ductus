@@ -73,6 +73,9 @@ The table follows `src/ductus/cli.py`. If you change one, change the other.
 | `--allow-loops` | off | keep looped `f`, stylish `r` and looped ascenders; by default such words are written again until the plain form appears (`letterforms.py`) |
 | `--max-cer X` | `0.15` | OCR acceptance threshold (character error rate); with `--legibility loose` and a profile, the profile's value (0.5 by default) |
 | `--no-verify` | off | skip the OCR read-back (faster, more mistakes) |
+| `--ocr` | `cascade` | read-back model: `cascade` reads with trocr-small first and has trocr-base re-read only what it rejects; `base` is the old single model (slower); `small` skips the re-read |
+| `--fast` | off | draft speed: `--ocr small`, 4 rewrite rounds instead of 8, no diffusion fallback. A few more rough words |
+| `--budget S` | none | no new rewrite round starts after S seconds; words still failing keep their best attempt |
 | `--steps N` | `25` | diffusion steps; more is slower |
 | `--no-cache` | off | generate words afresh instead of reusing earlier ones |
 
@@ -84,8 +87,12 @@ words still failing after the last round, seconds, the pen and the OCR mean scor
 | Variable | Meaning |
 |---|---|
 | `DUCTUS_RNN_DIR` | folder of the Grzego/handwriting-generation checkout (default `~/.cache/ductus/handwriting-generation`) |
-| `DUCTUS_RNN_PYTHON` | Python with TensorFlow 2 that runs the RNN worker |
-| `DUCTUS_RNN_THREADS` | CPU threads for the RNN worker (default 2) |
+| `DUCTUS_RNN_PYTHON` | Python with TensorFlow 2; used once to export the RNN weights to `pretrained/model-29.npz`, and for the old worker |
+| `DUCTUS_RNN_BACKEND` | `torch` (default: batched PyTorch sampler, `engines/rnn/graves.py`) or `worker` (the old TensorFlow child process, one line at a time) |
+| `DUCTUS_RNN_BATCH` | lines the RNN samples together (default 8) |
+| `DUCTUS_RNN_THREADS` | at most this many CPU threads for the RNN (default 2) |
+| `DUCTUS_THREADS` | CPU threads for the models; default: the cores free when ductus starts (8 cores minus the load), at most 8 |
+| `DUCTUS_DEVICE` | `cpu`, `cuda` or `mps`; default: a CUDA or Apple GPU when PyTorch sees one, else the CPU |
 | `DUCTUS_CACHE` | folder for downloaded weights (default `~/.cache/ductus`). The word cache uses the same variable as its own folder (default `~/.cache/ductus/words`) |
 
 ## Markup
