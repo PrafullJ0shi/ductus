@@ -202,7 +202,10 @@ class SupBox(Box):
 
 
 class Layouter:
-    def __init__(self, words, word_deco, look: Look, seed: int = 0, page_size=A4):
+    def __init__(self, words, word_deco, look: Look, seed: int = 0, page_size=A4, border=None):
+        self.border = border           # border.BorderSpec or None: keeps the text inside a ruled border/margin
+        self.right_cap = None          # hard right limit for ink when there is a border
+        self.walk_cap = None           # largest sideways wander of the left edge when there is a border
         self.words = words
         self.word_deco = word_deco
         self.look = look
@@ -223,6 +226,9 @@ class Layouter:
         self.cursor_word = 0
 
     # -- helpers -------------------------------------------------------------------
+    def W_H(self) -> tuple[int, int]:
+        return int(self.W), int(self.H)
+
     @property
     def page(self) -> Page:
         return self.pages[-1]
@@ -274,6 +280,8 @@ class Layouter:
         self.left, self.right, self.top, self.bottom = lm, self.W - rm, tm, self.H - bm
         self.y = self.top + self.xh * 1.6
         self.margin_walk = 0.0
+        if self.border is not None:
+            self.border.apply(self)
 
     def new_line(self, extra=0.0):
         m = self.look.mess
@@ -287,6 +295,8 @@ class Layouter:
         m = self.look.mess
         self.line_angle = -(self.look.slope_deg + self.slope_offset + self.rng.normal(0, 0.25 + 0.6 * m))  # degrees, ccw positive
         self.margin_walk = 0.85 * self.margin_walk + self.rng.normal(0, 3 + 10 * m)
+        if self.walk_cap is not None:
+            self.margin_walk = float(np.clip(self.margin_walk, -self.walk_cap, self.walk_cap))
         self.base_walk = 0.0
 
     def _tail_fits(self, boxes, bi, x) -> bool:
@@ -296,7 +306,10 @@ class Layouter:
         if len(tail) > 2 or not all(isinstance(t, WordBox) and len(t.text) <= 6 for t in tail):
             return False
         need = sum(t.width for t in tail) + self.xh * 1.0 * (len(tail) - 1)
-        return x + need < self.right + 0.5 * (self.W - self.right)
+        room = self.right + 0.5 * (self.W - self.right)
+        if self.right_cap is not None:
+            room = min(room, self.right_cap)
+        return x + need < room
 
     def flow(self, boxes, indent=0.0, hang=0.0, first_x=None):
         """Lay boxes left to right, wrapping at the right margin. Returns (x_end, y)."""

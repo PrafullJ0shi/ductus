@@ -46,6 +46,9 @@ The table follows `src/ductus/cli.py`. If you change one, change the other.
 | `--photo [a4\|notebook]` | off | phone photo of the page. `a4` (used when the flag has no value): one loose white sheet on a desk, slight corner lift, contact shadow. `notebook`: spiral-bound grid pad, pages below, curl at the binding. Both use the same calibrated camera model |
 | `--corrections RATE` | by look | share of words written wrong, struck out and rewritten (`messy` 0.03, others 0) |
 | `--humanize RATE` | `0.5` | rate of the human-error pass on the laid-out page (drift of size, baseline and slant, retouched letters); `0` turns it off; ignored for `--look neat` |
+| `--border` | `none` | `none`, `box`, `box-margin` or `margin`: a hand-ruled box and/or a left margin line like a project file, drawn in the pen's ink. The text stays inside (see [PAGES.md](PAGES.md)), so a page may hold fewer words and the text may need more pages |
+| `--border-inset MM` | `12` | distance of the box from the paper edge, nominal; each side is a little different on every page |
+| `--border-header MM` | `0` | also rule a line this far from the top edge, under a heading area (`0` = none; never closer than the box inset plus 10 mm) |
 | `--seed N` | `0` | random seed; same input, options and seed give the same page |
 
 **Pen and ink** (details in [PENS.md](PENS.md) and [INK.md](INK.md))

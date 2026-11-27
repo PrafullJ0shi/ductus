@@ -24,6 +24,7 @@ def cmd_write(a):
                 seed=a.seed, steps=a.steps, verify=not a.no_verify, max_cer=a.max_cer, cache=not a.no_cache, plain="" if a.allow_loops else "abcdefghijklmnopqrstuvwxyz", legibility=a.legibility, engine=a.engine, rnn_style=a.rnn_style, rnn_bias=a.rnn_bias, glyphs=a.glyphs,
                 corrections=a.corrections, pen=a.pen, tip=a.tip, weight=a.weight,
                 flat_ink=a.flat_ink, ink_model=a.ink_model, humanize=a.humanize, size=a.size,
+                border=a.border, border_inset=a.border_inset, border_header=a.border_header,
                 log=(lambda *x: None) if a.quiet else (lambda *x: print(*x, file=sys.stderr)))
     w = Writer(steps=a.steps, verify=not a.no_verify)
     r = w.write(text, o)
@@ -90,6 +91,11 @@ def main(argv=None):
     w.add_argument("--humanize", type=float, default=0.5,
                    help="rate of the human-error pass on the laid-out page (0 = off; ignored for --look neat)")
     w.add_argument("--size", type=float, help="x-height in mm (default 2.8)")
+    w.add_argument("--border", default="none", choices=["none", "box", "box-margin", "margin"],
+                   help="hand-ruled border box and/or left margin line, drawn in the pen's ink; the text stays inside")
+    w.add_argument("--border-inset", type=float, default=12.0, help="border box distance from the paper edge in mm (default 12)")
+    w.add_argument("--border-header", type=float, default=0.0,
+                   help="also rule a line this many mm from the top edge, under the heading area (0 = none)")
     w.add_argument("--seed", type=int, default=0)
     w.add_argument("--steps", type=int, default=25, help="diffusion steps (quality vs speed)")
     w.add_argument("--max-cer", type=float, help="OCR acceptance threshold")

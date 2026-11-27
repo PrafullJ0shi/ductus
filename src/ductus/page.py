@@ -86,6 +86,9 @@ class Options:
     ink_model: str = "realism"       # realism (default) | pens | flat
     humanize: float = 0.5            # rate of the realism.human_errors pass on the laid-out page (0 = off)
     size: float | None = None        # x-height mm
+    border: str = "none"            # none | box | box-margin | margin (hand-ruled border and margin line, see border.py)
+    border_inset: float = 12.0       # distance of the box from the paper edge, mm
+    border_header: float = 0.0       # mm from the top edge for a line under the heading area (0 = none)
     log: object = print
 
 
@@ -213,7 +216,9 @@ class Writer:
             _cache_put(ckey, (words, stats))
         # oops words are struck through by the layout
         deco = [w.deco for w in word_objs]
-        L = Layouter(words, deco, look, seed=o.seed)
+        from . import border as B
+        bspec = B.parse(o.border, o.border_inset, o.border_header)
+        L = Layouter(words, deco, look, seed=o.seed, border=bspec)
         pages = L.layout(blocks)
         from .render import ink_coverage, compose
         from .paper import make_paper, phone_photo
@@ -234,15 +239,21 @@ class Writer:
             model = "flat" if o.flat_ink else o.ink_model
             if model == "flat":
                 ink = ink_coverage(pg, words, look.mess, look.pen, sw, nrng)
+                if bspec:
+                    ink = bspec.draw(ink, None, *L.W_H(), sw * look.pen, o.seed * 7919 + pi, look.mess)[0]
                 img = compose(ink, look.ink, look.pressure, nrng, paper)
             elif model == "realism":
                 from .render import compose_realism
                 from .render import hex_rgb
                 shape, count = ink_coverage(pg, words, look.mess, look.pen, sw, nrng, nib=nib, with_count=True)
+                if bspec:
+                    shape, count = bspec.draw(shape, count, *L.W_H(), sw * look.pen, o.seed * 7919 + pi, look.mess)
                 rgb = tuple(int(v) for v in hex_rgb(o.ink or look.ink)) if (o.ink or (prof and not o.pen)) else None
                 img = compose_realism(shape, count, pen, o.seed + pi, paper, rgb=rgb, smudges=look.smudges)
             else:
                 shape, count = ink_coverage(pg, words, look.mess, look.pen, sw, nrng, nib=nib, with_count=True)
+                if bspec:
+                    shape, count = bspec.draw(shape, count, *L.W_H(), sw * look.pen, o.seed * 7919 + pi, look.mess)
                 img = compose_physical(shape, count, pen, look.pressure, nrng, paper, smudges=look.smudges)
             if o.photo:
                 img = phone_photo(img, seed=o.seed + pi, surface=_surface(o.photo))

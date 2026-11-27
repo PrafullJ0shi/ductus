@@ -228,6 +228,7 @@ What this says, without spin:
 | Page | Content |
 |---|---|
 | [docs/CLI.md](docs/CLI.md) | every option, markup and the Python API |
+| [docs/PAGES.md](docs/PAGES.md) | hand-ruled page borders and margin lines |
 | [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) | modules, writers and data flow |
 | [docs/METHOD.md](docs/METHOD.md) | carriers, read-back, layout, rendering |
 | [docs/PENS.md](docs/PENS.md) | pen presets and tip sizes |
