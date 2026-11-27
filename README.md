@@ -209,6 +209,8 @@ What this says, without spin:
 - [docs/BLIND_TEST.md](docs/BLIND_TEST.md): can a classifier tell real handwriting from ductus?
   So far it can, every time. Results, method and caveats are published
   ([`benchmark/blind_test.csv`](benchmark/blind_test.csv)).
+- [docs/WHY_DUCTUS.md](docs/WHY_DUCTUS.md): ten differences from a font and from the 2018
+  RNNs, each with a measured number or a file, and what it does not do yet.
 
 ## Limits
 
@@ -238,6 +240,7 @@ What this says, without spin:
 | [docs/COMPARISON.md](docs/COMPARISON.md) | this project against other tools |
 | [docs/VERSUS.md](docs/VERSUS.md) | one text from a font, two RNNs and ductus, side by side |
 | [docs/BLIND_TEST.md](docs/BLIND_TEST.md) | real versus generated handwriting, classifier results |
+| [docs/WHY_DUCTUS.md](docs/WHY_DUCTUS.md) | ten differences from fonts and the 2018 RNNs, with evidence |
 | [docs/RESEARCH.md](docs/RESEARCH.md) | survey of handwriting generation, licences, choice of engine |
 | [docs/FAQ.md](docs/FAQ.md) | common questions |
 | [docs/PLAN.md](docs/PLAN.md) | project plan and status |

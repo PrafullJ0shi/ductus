@@ -4,6 +4,20 @@
 real lines from ductus lines far better than chance. ductus output is **not** indistinguishable
 from real handwriting. These are results, not a pass.
 
+**Fooled rate** (updated after every test). The published runs report overall accuracy on
+balanced windows (half real, half generated), not a separate count of generated windows
+labelled as real. The figure used here is **100% minus accuracy**. It equals the share of
+generated windows labelled real only if errors are split evenly between the two classes.
+50% would mean the classifier cannot tell the two sets apart; 0% means it labelled none of
+the generated windows as real, if that even split holds.
+
+On the published accuracies, that figure is **1.5%** on the default-hand run (`proxy_v3`,
+both classifiers at 98.5%), **6.4% / 9.4%** on the earlier style-copy run (`proxy_v1`,
+logistic 93.6% / CNN 90.6%), and **0%** on the style-matched logistic test (accuracy 100%).
+The style-matched CNN (53% and 51% accuracy, so 47% and 49% by the same subtraction) is
+near chance and has too little data for this figure to mean anything. These are not a claim
+that a person, or a stronger detector, would miss generated pages at this rate.
+
 All numbers are in [`benchmark/blind_test.csv`](../benchmark/blind_test.csv). The test is
 described in [EVALUATION.md](EVALUATION.md#4-blind-test); this page is the published record of
 the runs.
