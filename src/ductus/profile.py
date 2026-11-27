@@ -245,13 +245,36 @@ def cc_lines(a: np.ndarray) -> list[dict]:
     groups: dict[int, list[int]] = {}
     for i in body:
         groups.setdefault(find(i), []).append(i)
-    lines = [g for g in groups.values() if len(g) >= 3]
+    lines = [g for g in groups.values() if len(g) >= 2]
+    def fit_of(g):
+        x = np.array([st[i, 0] + st[i, 2] / 2 for i in g]); y = np.array([cy[i] for i in g])
+        return np.polyfit(x, y, 1) if np.ptp(x) > 2 * h else np.array([0.0, y.mean()])
+    # pieces of one line split at a wide gap: merge pieces that do not overlap and sit on
+    # the same fitted line
+    merged = True
+    while merged and len(lines) > 1:
+        merged = False
+        fits = [fit_of(g) for g in lines]
+        ext = [(min(st[i, 0] for i in g), max(st[i, 0] + st[i, 2] for i in g)) for g in lines]
+        for i in range(len(lines)):
+            for j in range(i + 1, len(lines)):
+                (a0, a1), (b0, b1) = ext[i], ext[j]
+                if min(a1, b1) - max(a0, b0) > 0.5 * h:
+                    continue
+                mid_j = (b0 + b1) / 2; mid_i = (a0 + a1) / 2
+                yj = np.mean([cy[k] for k in lines[j]]); yi = np.mean([cy[k] for k in lines[i]])
+                if abs(np.polyval(fits[i], mid_j) - yj) < 0.45 * h and abs(np.polyval(fits[j], mid_i) - yi) < 0.45 * h \
+                        and max(a0, b0) - min(a1, b1) < 25 * h:
+                    lines[i] = lines[i] + lines[j]
+                    del lines[j]
+                    merged = True
+                    break
+            if merged:
+                break
+    lines = [g for g in lines if len(g) >= 3]
     if not lines:
         return []
-    fits = []
-    for g in lines:
-        x = np.array([st[i, 0] + st[i, 2] / 2 for i in g]); y = np.array([cy[i] for i in g])
-        fits.append(np.polyfit(x, y, 1) if np.ptp(x) > 2 * h else np.array([0.0, y.mean()]))
+    fits = [fit_of(g) for g in lines]
     for i in small:
         x = st[i, 0] + st[i, 2] / 2
         best, bd = None, 1e9
@@ -356,10 +379,12 @@ def build(photos: list[str], out_dir: str, name: str = "my-hand", reader=None, m
     grid_px = float(np.median(periods)) if periods else None
     mm_per_px = (5.0 / grid_px) if grid_px else None    # 5 mm squares are standard
     gaps = [g for l in all_lines for g in l["gaps"]]
-    slopes = np.array([l["slope_deg"] for l in all_lines])
+    # short pieces give noisy slopes: measure drift on lines of some length
+    slopes = np.array([l["slope_deg"] for l in all_lines if l["width"] > 8 * xh] or
+                      [l["slope_deg"] for l in all_lines])
     pitch = None
     ys = sorted([(l["page"], (l["y"][0] + l["y"][1]) / 2) for l in all_lines])
-    d = [b[1] - a[1] for a, b in zip(ys, ys[1:]) if a[0] == b[0] and 0 < b[1] - a[1] < 6 * xh]
+    d = [b[1] - a[1] for a, b in zip(ys, ys[1:]) if a[0] == b[0] and 0.8 * xh < b[1] - a[1] < 6 * xh]
     if d:
         pitch = float(np.median(d)) / xh
     ink = np.median(np.array(inks), axis=0) if inks else np.array([30, 50, 140])
@@ -392,8 +417,21 @@ def measure_habits(lines: list[dict], xh: float) -> dict:
     for l in lines:
         by_page.setdefault(l["page"], []).append(l)
     grow, tight, margins, sections = [], [], [], []
+    margin_sd = []
     for pls in by_page.values():
-        pls = sorted(pls, key=lambda l: l["y"][0])
+        # pieces of one written row (split at wide gaps) count as one row: leftmost start,
+        # median size
+        pls = sorted(pls, key=lambda l: (l["y"][0] + l["y"][1]) / 2)
+        rows_: list[list] = []
+        for l in pls:
+            c = (l["y"][0] + l["y"][1]) / 2
+            if rows_ and abs(c - np.mean([(q["y"][0] + q["y"][1]) / 2 for q in rows_[-1]])) < 0.6 * xh:
+                rows_[-1].append(l)
+            else:
+                rows_.append([l])
+        pls = [dict(y=(min(q["y"][0] for q in r), max(q["y"][1] for q in r)),
+                    x=(min(q["x"][0] for q in r), max(q["x"][1] for q in r)),
+                    xh=float(np.median([q["xh"] for q in r]))) for r in rows_]
         if len(pls) < 6:
             continue
         t = np.linspace(0, 1, len(pls))
@@ -412,13 +450,19 @@ def measure_habits(lines: list[dict], xh: float) -> dict:
             if top and bot:
                 tight.append(1 - bot / top)
         sections += list(d[(d >= 4.5) & (d < 12)])
-        margins += list(np.array([l["x"][0] for l in pls]) / xh)
+        m_ = np.array([l["x"][0] for l in pls]) / xh
+        margins += list(m_)
+        # spread around the page's own margin; indented items (lists, working) are habits too,
+        # but a row that starts mid-page is a second column, not the margin
+        m_ = m_[m_ < np.percentile(m_, 25) + 8]
+        if len(m_) >= 4:
+            margin_sd.append(float(np.std(m_)))
     sizes = np.array([l["xh"] for l in lines], float)
     heads = sizes[sizes > 1.3 * np.median(sizes)]
     out = {
-        "fatigue": round(float(np.clip(np.median(grow), 0, 0.3)), 3) if grow else 0.06,
+        "fatigue": round(float(np.clip(np.median(grow), 0, 0.12)), 3) if grow else 0.06,
         "tighten": round(float(np.clip(np.median(tight), 0, 0.4)), 3) if tight else 0.1,
-        "margin_sd_xh": round(float(np.std(margins)), 2) if margins else None,
+        "margin_sd_xh": round(float(np.median(margin_sd)), 2) if margin_sd else None,
         "heading_share": round(float(len(heads) / max(1, len(sizes))), 3),
         "heading_scale": round(float(np.median(heads) / np.median(sizes)), 2) if len(heads) else 1.45,
         "section_gap_xh": round(float(np.median(sections)), 2) if sections else None,
