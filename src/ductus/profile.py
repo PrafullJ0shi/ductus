@@ -43,6 +43,32 @@ def ink_map(rgb: np.ndarray) -> np.ndarray:
     return a
 
 
+def paper_mask(rgb: np.ndarray) -> np.ndarray:
+    """The page in a photo: the largest bright, low-saturation region, holes filled and the
+    border pulled in a little, so the desk, the spiral binding and the page edge are not read
+    as ink."""
+    hsv = cv2.cvtColor(rgb, cv2.COLOR_RGB2HSV)
+    v = cv2.GaussianBlur(hsv[..., 2], (0, 0), 3)
+    sat = cv2.GaussianBlur(hsv[..., 1], (0, 0), 3)
+    t, _ = cv2.threshold(v, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
+    m = ((v > t) & (sat < 90)).astype(np.uint8)
+    m = cv2.morphologyEx(m, cv2.MORPH_CLOSE, np.ones((25, 25), np.uint8))
+    n, lab, st, _ = cv2.connectedComponentsWithStats(m)
+    if n < 2:
+        return np.ones(rgb.shape[:2], np.float32)
+    k = 1 + int(np.argmax(st[1:, cv2.CC_STAT_AREA]))
+    m = (lab == k).astype(np.uint8)
+    cnts, _ = cv2.findContours(m, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+    hull = cv2.convexHull(max(cnts, key=cv2.contourArea))
+    m = np.zeros_like(m)
+    cv2.fillPoly(m, [hull], 1)
+    e = max(5, int(0.025 * min(m.shape)))
+    m = cv2.erode(m, np.ones((e, e), np.uint8))
+    if m.mean() < 0.2:                     # no clear page (a scan, or a crop): keep everything
+        return np.ones(rgb.shape[:2], np.float32)
+    return m.astype(np.float32)
+
+
 def remove_grid(a: np.ndarray) -> np.ndarray:
     """Remove long thin straight lines (printed grid or ruling) from an ink map."""
     m = (a > 0.35).astype(np.uint8)
@@ -56,16 +82,29 @@ def remove_grid(a: np.ndarray) -> np.ndarray:
     return out
 
 
-def grid_period(a_raw: np.ndarray) -> float | None:
-    """Spacing in px of a printed grid, from the autocorrelation of the column profile."""
-    prof = a_raw.mean(axis=0) - a_raw.mean()
-    if len(prof) < 200:
+def grid_period(img: np.ndarray) -> float | None:
+    """Spacing in px of a printed grid. The page is perspective-warped and has text on it, so
+    the period is read from the spectrum of row and column profiles in several 500 px windows
+    and the median is kept. `img` is ink-positive (high = dark)."""
+    g = img.astype(np.float64)
+    H, W = g.shape
+    if min(H, W) < 700:
         return None
-    ac = np.correlate(prof, prof, "full")[len(prof) - 1:]
-    ac /= max(ac[0], 1e-9)
-    lo = 12
-    pk = lo + int(np.argmax(ac[lo:len(ac) // 4]))
-    return float(pk) if ac[pk] > 0.2 else None
+    est = []
+    for fy in (0.25, 0.4, 0.55):
+        for fx in (0.25, 0.4, 0.55):
+            y, x = int(fy * H), int(fx * W)
+            c = g[y:y + 500, x:x + 500]
+            for prof in (c.mean(axis=0), c.mean(axis=1)):
+                prof = prof - np.convolve(prof, np.ones(41) / 41, "same")
+                prof = prof[41:-41] * np.hanning(len(prof) - 82)
+                F = np.abs(np.fft.rfft(prof, 4096))
+                fr = np.fft.rfftfreq(4096)
+                m = (fr > 1 / 120) & (fr < 1 / 15)
+                i = int(np.argmax(F * m))
+                if F[i] > 3 * np.median(F[m]):
+                    est.append(1 / fr[i])
+    return float(np.median(est)) if len(est) >= 4 else None
 
 
 def orient(a: np.ndarray, reader=None) -> tuple[np.ndarray, int]:
@@ -87,10 +126,71 @@ def orient(a: np.ndarray, reader=None) -> tuple[np.ndarray, int]:
     return a, rot
 
 
+def drop_blobs(a: np.ndarray) -> np.ndarray:
+    """Remove ink blobs far thicker than pen strokes: spiral-binding rings, shadows, page
+    edges. A stroke's thickness is the largest distance-transform value inside it."""
+    m = (a > 0.3).astype(np.uint8)
+    n, lab, st, _ = cv2.connectedComponentsWithStats(m, connectivity=8)
+    if n < 3:
+        return a
+    dt = cv2.distanceTransform(m, cv2.DIST_L2, 3)
+    thick = np.zeros(n, np.float32)
+    np.maximum.at(thick, lab.ravel(), dt.ravel())
+    big = st[:, cv2.CC_STAT_AREA] > 20
+    big[0] = False
+    if big.sum() < 5:
+        return a
+    med = float(np.median(thick[big]))
+    w, h = st[:, cv2.CC_STAT_WIDTH], st[:, cv2.CC_STAT_HEIGHT]
+    bad = (thick > 2.6 * med) | (np.maximum(w, h) > 0.5 * max(a.shape))
+    bad[0] = False
+    out = a.copy()
+    mask = bad[lab]
+    # also clear the faint halo around a dropped blob
+    mask = cv2.dilate(mask.astype(np.uint8), np.ones((7, 7), np.uint8)).astype(bool)
+    out[mask] = 0
+    return out
+
+
+def orient_deskew(a: np.ndarray, reader=None, search: float = 15.0) -> tuple[np.ndarray, int, float]:
+    """Upright, deskewed page ink map: 0/90 by the sharper deskewed row projection, then
+    0/180 by OCR confidence over the longest few lines (trimmed to their ink)."""
+    from .segment import skew_angle
+    best = None
+    for r in (0, 90):
+        b = np.rot90(a, -1).copy() if r else a
+        ang = skew_angle(b, search=search)
+        b = rotate(b, -ang)
+        sh = np.var(b.sum(axis=1)) / max(1e-9, b.sum() ** 2)
+        if best is None or sh > best[0]:
+            best = (sh, b, r, ang)
+    _, a, rot, ang = best
+    if reader is not None:
+        spans = sorted(find_text_lines(a), key=lambda r: -a[r[0]:r[1]].sum())[:4]
+        crops = []
+        for y0, y1 in spans:
+            sub = a[y0:y1]
+            cols = np.where(sub.max(axis=0) > 0.3)[0]
+            if len(cols) > 10:
+                crops.append((255 * (1 - sub[:, cols.min():cols.max() + 1])).astype(np.uint8))
+        if crops:
+            _, c0 = reader.read(crops, with_conf=True)
+            _, c1 = reader.read([c[::-1, ::-1].copy() for c in crops], with_conf=True)
+            if float(np.mean(c1)) > float(np.mean(c0)) + 0.02:
+                a, rot = a[::-1, ::-1].copy(), rot + 180
+    return a, rot, ang
+
+
 def rotate(a: np.ndarray, deg: float) -> np.ndarray:
     h, w = a.shape
     M = cv2.getRotationMatrix2D((w / 2, h / 2), deg, 1.0)
     return cv2.warpAffine(a, M, (w, h), flags=cv2.INTER_LINEAR)
+
+
+def _ncomp(crop: np.ndarray) -> int:
+    m = (crop > 0.3).astype(np.uint8)
+    n, _, st, _ = cv2.connectedComponentsWithStats(m)
+    return int((st[1:, cv2.CC_STAT_AREA] > 15).sum())
 
 
 def line_crops(a: np.ndarray) -> list[dict]:
@@ -130,7 +230,7 @@ def line_crops(a: np.ndarray) -> list[dict]:
         resid = float(np.std(np.array([p[1] for p in pts]) - np.polyval(np.polyfit(*zip(*pts), 1), [p[0] for p in pts]))) if len(pts) >= 3 else 0.0
         out.append(dict(y=(ya, yb), x=(x0, x1), crop=crop, xh=xh, width=x1 - x0,
                         gaps=word_gaps, slope_deg=float(np.degrees(np.arctan(slope))), resid=resid,
-                        sw=stroke_width(crop)))
+                        sw=stroke_width(crop), ncomp=_ncomp(crop)))
     return out
 
 
@@ -142,14 +242,11 @@ def build(photos: list[str], out_dir: str, name: str = "my-hand", reader=None, m
     all_lines, inks, periods = [], [], []
     for pi, p in enumerate(photos):
         rgb = load_photo(p)
-        raw = ink_map(rgb)
-        a, rot = orient(remove_grid(raw), reader)
-        raw_o = np.rot90(raw, -(rot // 90) % 4) if rot % 180 == 90 else (raw[::-1, ::-1] if rot == 180 else raw)
-        per = grid_period(raw_o)
+        raw = ink_map(rgb) * paper_mask(rgb)
+        a, rot, ang = orient_deskew(drop_blobs(remove_grid(raw)), reader)
+        per = grid_period(255.0 - cv2.cvtColor(rgb, cv2.COLOR_RGB2GRAY))
         if per:
             periods.append(per)
-        ang = skew_angle(a)
-        a = rotate(a, -ang)
         cv2.imwrite(str(out / "debug" / f"page{pi:02d}_ink.png"), (255 * (1 - a)).astype(np.uint8))
         # ink colour from the strongest ink pixels of the original photo
         m = raw > 0.8
@@ -165,7 +262,9 @@ def build(photos: list[str], out_dir: str, name: str = "my-hand", reader=None, m
         raise RuntimeError("no text lines found")
     xh = float(np.median([l["xh"] for l in all_lines]))
     # good references: wide single lines with average x-height
-    cand = [l for l in all_lines if l["width"] > 8 * xh and 0.6 * xh < l["xh"] < 1.6 * xh]
+    # real writing has many marks along the line; rules, stray bars and blobs do not
+    cand = [l for l in all_lines if l["width"] > 8 * xh and 0.6 * xh < l["xh"] < 1.6 * xh
+            and l["ncomp"] >= 0.35 * l["width"] / max(l["xh"], 1)]
     cand.sort(key=lambda l: -l["width"])
     refs = []
     for i, l in enumerate(cand[:max_refs]):
