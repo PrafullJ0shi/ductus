@@ -28,11 +28,12 @@ works but is slower and less readable. With `--engine rnn` it stops with an erro
 ## Speed
 
 **How long does a page take?**
-On a shared 8-core CPU, an 84-word A4 page took 167 s by default and 37 s with `--fast`, against
-2,881 s before the speed work ([round 6](BENCHMARK.md#round-6-speed): the old figure was
-measured under a heavier load, so the gain is smaller than 17 times for an idle machine; the
-closest same-load comparison is 510 s to 167 s). Pages after the first in one run reuse the
-loaded models. Treat these as examples, not promises.
+On a shared 8-core CPU, a new 84-word A4 page took 84 s by default and 36 s with `--fast`
+([round 7](BENCHMARK.md#round-7-more-speed-ideas-measured-one-by-one)). A page written again,
+so its words were already in the word bank, took 22 s. Earlier, before the speed work, the
+same page took 2,881 s under a heavier load; the closest same-load comparison for the
+round 6 pipeline is 510 s to 167 s ([round 6](BENCHMARK.md#round-6-speed)). Pages after the
+first in one run reuse the loaded models. Treat these as examples, not promises.
 
 **Why is it slow, and what makes it faster?**
 Almost all the time is the OCR read-back that checks every word and rewrites the ones that
@@ -48,9 +49,10 @@ used at most once per document, warped slightly each time, and dropped after 3 d
 pages do not repeat. `--no-bank` turns it off; `scripts/build_bank.py` fills it from a word list.
 
 **How do I make a draft faster?**
-Use `--fast` (small OCR only, 4 rewrite rounds, no diffusion fallback: 4 to 5 times faster, a
-few more rough words; 2 to 3 of 84 words failed in the test), `--budget SECONDS` to stop
-starting new rewrite rounds, or `--no-verify` to skip the read-back entirely (more mistakes).
+Use `--fast` (small OCR only, 4 rewrite rounds, no diffusion fallback: 36 s against 84 s on a
+cold page, so about twice as fast; a few more rough words, 3 of 84 in the test),
+`--budget SECONDS` to stop starting new rewrite rounds, or `--no-verify` to skip the
+read-back entirely (more mistakes).
 Words are cached under
 `~/.cache/ductus/words`, so changing only the pen, paper, photo or ink model re-renders
 without writing the words again. `--steps` only affects the diffusion writer.

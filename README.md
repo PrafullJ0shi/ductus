@@ -33,9 +33,10 @@ Version 1.0.0. Small tests, honest numbers. What is true today:
 - It reads well. On the 7-line test in [docs/BENCHMARK.md](docs/BENCHMARK.md) the normalised
   character error rate on the 4 main lines is 0.038 (raw 0.108), ahead of the 2018 RNNs
   (0.084 and 0.124) and behind a handwriting font (0.000). Maths is the weakest line (0.15).
-- It is slow on a CPU compared with fonts and RNNs, because of the OCR read-back: an 84-word
-  page took 167 s by default and 37 s with `--fast` on a shared 8-core box
-  ([round 6](docs/BENCHMARK.md#round-6-speed)); the 7-line benchmark page took 61 s.
+- It is slow on a CPU compared with fonts and RNNs, because of the OCR read-back: a new
+  84-word page took 84 s by default and 36 s with `--fast` on a shared 8-core box
+  ([round 7](docs/BENCHMARK.md#round-7-more-speed-ideas-measured-one-by-one)). A page that
+  repeats words already in the word bank took 22 s.
 - It does not pass a blind test yet. A fine-tuned ResNet-18 tells the writer's real
   photographed lines from ductus lines in his own profile 98.5% of the time
   ([docs/BLIND_TEST.md](docs/BLIND_TEST.md#photo-matched-run)).
@@ -102,6 +103,16 @@ and less readable (round 1 in the benchmark).
 
 More in [`samples/`](samples): neat and messy looks, grid and ruled paper, and a phone photo.
 `scripts/make_samples.py` makes them from the files in [`examples/`](examples).
+
+A definitions page written line by line, from the same ductus output as the still above
+(`docs/diagrams/build_demo.py`):
+
+<p align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="docs/assets/demo-dark.gif">
+    <img alt="A statistics notes page being written line by line by ductus" src="docs/assets/demo-light.gif" width="100%">
+  </picture>
+</p>
 
 Clean page and phone photo, with `--photo a4` and `--photo notebook`:
 
@@ -213,14 +224,16 @@ Details and sources: [docs/REALISM.md](docs/REALISM.md#g-the-realism-package-src
 From [docs/BENCHMARK.md](docs/BENCHMARK.md): 7 test lines, one sample each, judged by
 `trocr-large-handwritten` (a different OCR model from the one ductus uses for its own check).
 Normalised character error rate on the 4 main lines (short sentence, definition, maths,
-pangram); lower reads better. The ductus rows are rounds 1 to 6 of the same benchmark; machine
-load differed between rounds, so the speed column is only a rough guide.
+pangram); lower reads better. The ductus rows are rounds 1 to 7 of the same benchmark; machine
+load differed between rounds, so the speed column is only a rough guide. Capitals and digits
+for ductus 1.0 are from the last per-line table (round 6); the 4-main-line CER was unchanged
+in round 7 (0.038).
 
 | System | norm CER | Capitals | Digits | Repeated glyphs | s per line (CPU) |
 |---|---|---|---|---|---|
 | Handwriting font (Caveat, via text-to-handwriting) | **0.000** | 0.000 | 0.037 | 46% of shapes | 0.7 |
 | sjvasquez RNN (2018) | 0.084 | 1.500 | 0.482 | 0% | 2.7 |
-| **ductus 1.0 (round 6, `--no-bank`)** | **0.038** | **0.000** | 0.037 | 0% | 61 s per page |
+| **ductus 1.0 (round 7, cold)** | **0.038** | **0.000** | 0.037 | 0% | 84 s per 84-word page |
 | ductus, round 5 | 0.038 | 0.000 | 0.037 | 0% | 12 |
 | ductus, round 4 (template numbers, symbols, capitals) | 0.122 | 0.000 | 0.037 | 0% | 77 (loaded machine) |
 | ductus, round 3 (cursive r/f, template M/R/H/E/N) | 0.093 | 0.136 | 0.111 | 0% | 38 |
@@ -307,7 +320,7 @@ generated pages as someone's own work. A provenance watermark is on the roadmap.
 
 ## Credits and licences
 
-- ductus code: MIT, see [LICENSE](LICENSE).
+- ductus code: MIT, see [LICENSE](LICENSE). Third-party notices are in [NOTICE](NOTICE).
 - [DiffBrush](https://github.com/dailenson/DiffBrush) (Dai et al., ICCV 2025): network code
   vendored under MIT in `src/ductus/engines/diffbrush/`. Its weights are downloaded at first
   use, not shipped; they were trained on the IAM database, which is licensed for

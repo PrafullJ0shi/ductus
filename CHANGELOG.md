@@ -4,8 +4,10 @@ All notable changes are listed here. Versions follow semantic versioning.
 
 ## 1.0.0 - 2026-11-27
 
-First stable release. Benchmark: normalised CER 0.038 (raw 0.108) on the 4 main test lines,
-61 s per benchmark page on a CPU. The blind test is not passed yet (see [BLIND_TEST.md](docs/BLIND_TEST.md)).
+First stable release. Benchmark: normalised CER 0.038 (raw 0.108) on the 4 main test lines.
+A new 84-word page took 84 s by default on a CPU, 36 s with `--fast`, and 22 s when the words
+were already in the word bank ([round 7](docs/BENCHMARK.md#round-7-more-speed-ideas-measured-one-by-one)).
+The blind test is not passed yet (see [BLIND_TEST.md](docs/BLIND_TEST.md)).
 
 - Default writer is the Graves RNN (plain, print-like letters), with diffusion as the fallback
   for words it cannot write or that still fail the read-back (`--engine`).

@@ -33,8 +33,8 @@ Also needed:
 
 CUDA and MPS are used when present but have not been timed. To do: time a page on a common GPU,
 add half precision for the OCR and diffusion models, batch the DDIM sampler, and publish the
-numbers next to the CPU ones (61 s per benchmark page; 167 s default and 37 s `--fast` for an
-84-word page).
+numbers next to the CPU ones (84 s default and 36 s `--fast` for a new 84-word page; 22 s
+when the page repeats words already in the word bank).
 
 ## 3. Web service with a fast and a quality mode
 
