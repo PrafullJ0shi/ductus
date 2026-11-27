@@ -146,8 +146,28 @@ def _smooth(t: np.ndarray, n: int = 40) -> np.ndarray:
         return _corners(t)
 
 
-def strokes(word: str, rng: np.random.Generator, mess: float = 0.3) -> list[np.ndarray]:
-    """Strokes of a whole token in x-height units (baseline y = 0), characters side by side."""
+def load_personal(style_dir) -> dict | None:
+    """The writer's own shapes (glyphs.json from `ductus charset`), or None."""
+    import json
+    from pathlib import Path
+    if not style_dir:
+        return None
+    f = Path(style_dir) / "glyphs.json"
+    if not f.is_file():
+        return None
+    g = json.loads(f.read_text()).get("glyphs", {})
+    # quotes and the superscript two sit where the plain templates put them
+    for ch, top in (("'", -1.46), ('"', -1.46)):
+        if ch in g:
+            ys = [p[1] for _, pts in g[ch] for p in pts]
+            d = top - min(ys)
+            g[ch] = [[k, [[x, y + d] for x, y in pts]] for k, pts in g[ch]]
+    return {ch: [(k, [tuple(p) for p in pts]) for k, pts in v] for ch, v in g.items()}
+
+
+def strokes(word: str, rng: np.random.Generator, mess: float = 0.3, table: dict | None = None) -> list[np.ndarray]:
+    """Strokes of a whole token in x-height units (baseline y = 0), characters side by side.
+    `table`: the writer's own shapes, used for every character it has."""
     out = []
     x = 0.0
     shear = rng.normal(0.07, 0.03)                 # one slant per token, a little forward
@@ -156,9 +176,9 @@ def strokes(word: str, rng: np.random.Generator, mess: float = 0.3) -> list[np.n
         if ch == " ":
             x += 0.9
             continue
-        tpl = T[ch]
+        tpl = (table or {}).get(ch) or T[ch]
         sx = rng.uniform(0.93, 1.07)
-        sy = rng.uniform(0.95, 1.05) * (0.92 if ch in "0123456789" else 1.0)
+        sy = rng.uniform(0.95, 1.05) * (0.92 if ch in "0123456789" and not (table and ch in table) else 1.0)
         drift = 0.6 * drift + rng.normal(0, 0.025 + 0.02 * mess)   # baseline wander between characters
         allx = np.concatenate([np.array(p)[:, 0] for _, p in tpl])
         left = float(allx.min())
@@ -169,7 +189,7 @@ def strokes(word: str, rng: np.random.Generator, mess: float = 0.3) -> list[np.n
             t = np.array(pts, dtype=np.float64)
             t[:, 0] = (t[:, 0] - left) * sx
             t[:, 1] = t[:, 1] * sy
-            t[:, 0] -= shear * t[:, 1]
+            t[:, 0] -= (shear - 0.07 if (table and ch in table) else shear) * t[:, 1]   # his shapes carry his slant
             t += rng.normal(0, 0.016, t.shape)
             if kind == "d":
                 p = t + np.array([[0.0, 0.0], [0.035, 0.02]])
@@ -185,10 +205,11 @@ def strokes(word: str, rng: np.random.Generator, mess: float = 0.3) -> list[np.n
     return out
 
 
-def render(word: str, rng: np.random.Generator, xh: float = 26.0, pen_px: float = 2.3, mess: float = 0.3):
+def render(word: str, rng: np.random.Generator, xh: float = 26.0, pen_px: float = 2.3, mess: float = 0.3,
+           table: dict | None = None):
     """(alpha 0..1, baseline row, x-height px) of the token at the RNN engine's line scale."""
     import cv2
-    st = strokes(word, rng, mess)
+    st = strokes(word, rng, mess, table)
     allp = np.concatenate(st)
     x0, y0 = allp[:, 0].min(), allp[:, 1].min()
     pad = 6

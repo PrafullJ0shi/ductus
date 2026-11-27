@@ -214,6 +214,7 @@ class Writer:
             words, stats = cached
         elif o.cache:
             _cache_put(ckey, (words, stats))
+        words = _personal_templates(words, o, look)
         # oops words are struck through by the layout
         deco = [w.deco for w in word_objs]
         from . import border as B
@@ -371,6 +372,27 @@ def write_lines(writer: "Writer", lines: list[str], o: Options) -> tuple[list[np
         out.append(img[max(0, y0 - 16):y1 + 16, max(0, x0 - 16):x1 + 16])
     stats = dict(syn.stats, seconds=round(time.time() - t0, 1))
     return out, stats
+
+
+def _personal_templates(words, o, look):
+    """Numbers, symbols and capital tokens in the writer's own shapes (glyphs.json in the style
+    folder, from `ductus charset`). Applied after the word cache, so a new character sheet
+    takes effect without re-synthesising the words."""
+    if not o.style or o.glyphs == "off":
+        return words
+    from . import printglyphs as PG
+    from .synth import WordImage
+    tab = PG.load_personal(o.style)
+    if not tab:
+        return words
+    rng = np.random.default_rng(o.seed * 31 + 7)
+    out = []
+    for w in words:
+        if getattr(w, "template", False):
+            a, bl, xh = PG.render(w.text, rng, mess=look.mess, table=tab)
+            w = WordImage(w.text, a, bl, xh, 1.0, w.text, template=True)
+        out.append(w)
+    return out
 
 
 CACHE_VERSION = 31  # bump when word synthesis changes

@@ -48,6 +48,15 @@ def cmd_write(a):
     print(json.dumps({"files": pngs, **r.stats}))
 
 
+def cmd_charset(a):
+    from pathlib import Path
+    from .charset import build_glyphs
+    Path(a.style).mkdir(parents=True, exist_ok=True)
+    r = build_glyphs(a.photo, str(Path(a.style) / "glyphs.json"))
+    print(f"saved {len(r['glyphs'])} characters to {Path(a.style) / 'glyphs.json'}; "
+          "numbers, symbols and capital tokens now use them")
+
+
 def cmd_style(a):
     from .profile import build
     reader = None
@@ -123,6 +132,10 @@ def main(argv=None):
     s.add_argument("--name", default="my-hand")
     s.add_argument("--no-ocr", action="store_true", help="skip OCR-based upside-down detection")
     s.set_defaults(fn=cmd_style)
+    c = sub.add_parser("charset", help="trace your own capitals, digits and symbols from a photo of a character sheet")
+    c.add_argument("photo", help="one sheet, rows: a-n / o-z / A-P / Q-Z / 0-9 / = + - x ÷ / ( ) % . , : ; ? ! √ / ² \" '")
+    c.add_argument("--style", required=True, help="style folder (from `ductus style`) to save glyphs.json into")
+    c.set_defaults(fn=cmd_charset)
     p = sub.add_parser("presets", help="list built-in styles")
     p.set_defaults(fn=cmd_presets)
     a = ap.parse_args(argv)
