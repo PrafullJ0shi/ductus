@@ -161,7 +161,11 @@ def orient_deskew(a: np.ndarray, reader=None, search: float = 15.0) -> tuple[np.
         b = np.rot90(a, -1).copy() if r else a
         ang = skew_angle(b, search=search)
         b = rotate(b, -ang)
-        sh = np.var(b.sum(axis=1)) / max(1e-9, b.sum() ** 2)
+        # line structure only: remove the slow envelope of the text block before scoring,
+        # so a narrow, tall block is not mistaken for sideways text
+        pr = b.sum(axis=1).astype(np.float64)
+        env = cv2.GaussianBlur(pr.reshape(-1, 1), (1, 0), sigmaX=0.1, sigmaY=max(8.0, len(pr) / 25)).ravel()
+        sh = np.var(pr - env) / max(1e-9, float(pr.mean()) ** 2)
         if best is None or sh > best[0]:
             best = (sh, b, r, ang)
     _, a, rot, ang = best
@@ -193,25 +197,102 @@ def _ncomp(crop: np.ndarray) -> int:
     return int((st[1:, cv2.CC_STAT_AREA] > 15).sum())
 
 
+def cc_lines(a: np.ndarray) -> list[dict]:
+    """Text lines as chains of ink marks: each mark links to the nearest mark to its right at
+    about the same height, so lines that curve, tilt or sit close together (descenders of
+    one line reaching the next) are kept apart. Small marks (dots, commas) join the line
+    whose body is nearest. Returns, per line, the ink of that line's marks only, cut out and
+    straightened along the line, with its fitted slope in degrees."""
+    m = (a > 0.3).astype(np.uint8)
+    n, lab, st, cen = cv2.connectedComponentsWithStats(m, connectivity=8)
+    if n < 3:
+        return []
+    area = st[:, cv2.CC_STAT_AREA]
+    hgt = st[:, cv2.CC_STAT_HEIGHT].astype(float)
+    big = [i for i in range(1, n) if area[i] >= 25]
+    if len(big) < 3:
+        return []
+    h = float(np.median(hgt[big]))
+    small = [i for i in range(1, n) if 4 <= area[i] < 25 or hgt[i] < 0.35 * h]
+    body = [i for i in big if hgt[i] >= 0.35 * h]
+    # vertical centre of a mark's main body (tall letters are pulled toward the x-band)
+    cy = {i: st[i, 1] + min(st[i, 3], 1.4 * h) - 0.5 * min(st[i, 3], 1.2 * h) for i in body}
+    parent = {i: i for i in body}
+    def find(i):
+        while parent[i] != i:
+            parent[i] = parent[parent[i]]
+            i = parent[i]
+        return i
+    order = sorted(body, key=lambda i: st[i, 0])
+    xs = np.array([st[i, 0] for i in order])
+    for k, i in enumerate(order):
+        x1 = st[i, 0] + st[i, 2]
+        best, bc = None, 1e9
+        for j in order[k + 1:k + 60]:
+            gap = st[j, 0] - x1
+            if gap > 3.0 * h:
+                if st[j, 0] > x1 + 3.0 * h and st[j, 0] - st[i, 0] > 6 * h:
+                    break
+                continue
+            dy = abs(cy[j] - cy[i])
+            if dy > 0.6 * h:
+                continue
+            c = max(gap, 0) + 2.5 * dy
+            if c < bc:
+                best, bc = j, c
+        if best is not None:
+            parent[find(best)] = find(i)
+    groups: dict[int, list[int]] = {}
+    for i in body:
+        groups.setdefault(find(i), []).append(i)
+    lines = [g for g in groups.values() if len(g) >= 3]
+    if not lines:
+        return []
+    fits = []
+    for g in lines:
+        x = np.array([st[i, 0] + st[i, 2] / 2 for i in g]); y = np.array([cy[i] for i in g])
+        fits.append(np.polyfit(x, y, 1) if np.ptp(x) > 2 * h else np.array([0.0, y.mean()]))
+    for i in small:
+        x = st[i, 0] + st[i, 2] / 2
+        best, bd = None, 1e9
+        for k, g in enumerate(lines):
+            gx0 = min(st[j, 0] for j in g) - 1.5 * h; gx1 = max(st[j, 0] + st[j, 2] for j in g) + 1.5 * h
+            if not gx0 <= x <= gx1:
+                continue
+            d = abs(cen[i, 1] - np.polyval(fits[k], x))
+            if d < bd:
+                best, bd = k, d
+        if best is not None and bd < 1.3 * h:
+            lines[best].append(i)
+    out = []
+    for g, fit in zip(lines, fits):
+        sel = np.zeros(n, bool); sel[g] = True
+        x0 = int(min(st[i, 0] for i in g)); x1 = int(max(st[i, 0] + st[i, 2] for i in g))
+        y0 = int(min(st[i, 1] for i in g)); y1 = int(max(st[i, 1] + st[i, 3] for i in g))
+        pad = int(0.3 * h) + 4
+        ya, yb, xa, xb = max(0, y0 - pad), min(a.shape[0], y1 + pad), max(0, x0 - 4), min(a.shape[1], x1 + 4)
+        crop = a[ya:yb, xa:xb] * sel[lab[ya:yb, xa:xb]]
+        ang = float(np.degrees(np.arctan(fit[0])))
+        if abs(ang) > 0.3:
+            M = cv2.getRotationMatrix2D((crop.shape[1] / 2, crop.shape[0] / 2), ang, 1.0)
+            ch = int(crop.shape[0] + abs(np.tan(np.radians(ang))) * crop.shape[1]) + 2
+            M[1, 2] += (ch - crop.shape[0]) / 2
+            crop = cv2.warpAffine(crop, M, (crop.shape[1], ch), flags=cv2.INTER_LINEAR)
+            rows = np.where(crop.max(axis=1) > 0.3)[0]
+            if len(rows):
+                crop = crop[max(0, rows.min() - pad):rows.max() + pad + 1]
+        out.append(dict(crop=crop, y=(ya, yb), x=(x0, x1), slope=ang, cy=float(np.polyval(fit, (x0 + x1) / 2))))
+    out.sort(key=lambda d: d["cy"])
+    return out
+
+
 def line_crops(a: np.ndarray) -> list[dict]:
     """Split a deskewed page ink map into line crops with measurements."""
     out = []
-    spans = find_text_lines(a)
-    if not spans:
-        return out
-    hs = np.array([b - a_ for a_, b in spans])
-    med = float(np.median(hs))
-    for (y0, y1) in spans:
-        if not (0.45 * med <= y1 - y0 <= 2.2 * med):
-            continue
-        pad = int(0.25 * (y1 - y0))
-        ya, yb = max(0, y0 - pad), min(a.shape[0], y1 + pad)
-        crop = a[ya:yb]
-        cols = np.where(crop.max(axis=0) > 0.3)[0]
-        if len(cols) < 10:
-            continue
-        x0, x1 = cols.min(), cols.max() + 1
-        crop = crop[:, max(0, x0 - 4):x1 + 4]
+    for ln in cc_lines(a):
+        crop = ln["crop"]
+        ya, yb = ln["y"]
+        x0, x1 = ln["x"]
         bl, xh = baseline_and_xheight(crop)
         runs = column_runs(crop.max(axis=0) > 0.3)
         gaps = [runs[i + 1][0] - runs[i][1] for i in range(len(runs) - 1)]
@@ -226,7 +307,7 @@ def line_crops(a: np.ndarray) -> list[dict]:
                 prof = sub.sum(axis=1)
                 band = np.where(prof > 0.35 * prof.max())[0]
                 pts.append((b.mean(), band.max()))
-        slope = float(np.polyfit(*zip(*pts), 1)[0]) if len(pts) >= 3 else 0.0
+        slope = float(np.tan(np.radians(-ln["slope"])))      # drift of the line before straightening
         resid = float(np.std(np.array([p[1] for p in pts]) - np.polyval(np.polyfit(*zip(*pts), 1), [p[0] for p in pts]))) if len(pts) >= 3 else 0.0
         out.append(dict(y=(ya, yb), x=(x0, x1), crop=crop, xh=xh, width=x1 - x0,
                         gaps=word_gaps, slope_deg=float(np.degrees(np.arctan(slope))), resid=resid,
