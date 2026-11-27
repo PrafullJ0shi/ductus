@@ -202,6 +202,14 @@ What this says, without spin:
   generated test that is not yet at chance, are in [docs/EVALUATION.md](docs/EVALUATION.md)
   and [docs/COMPARISON.md](docs/COMPARISON.md).
 
+## Versus and blind test
+
+- [docs/VERSUS.md](docs/VERSUS.md): the same text from a handwriting font, two RNNs and ductus,
+  with readability, repetition and speed side by side.
+- [docs/BLIND_TEST.md](docs/BLIND_TEST.md): can a classifier tell real handwriting from ductus?
+  So far it can, every time. Results, method and caveats are published
+  ([`benchmark/blind_test.csv`](benchmark/blind_test.csv)).
+
 ## Limits
 
 - Characters outside the writers' alphabet are drawn as marks or replaced by close ASCII forms.
@@ -228,6 +236,8 @@ What this says, without spin:
 | [docs/BENCHMARK.md](docs/BENCHMARK.md) | readability and speed against other tools |
 | [docs/EVALUATION.md](docs/EVALUATION.md) | earlier legibility, repetition, speed and blind test |
 | [docs/COMPARISON.md](docs/COMPARISON.md) | this project against other tools |
+| [docs/VERSUS.md](docs/VERSUS.md) | one text from a font, two RNNs and ductus, side by side |
+| [docs/BLIND_TEST.md](docs/BLIND_TEST.md) | real versus generated handwriting, classifier results |
 | [docs/RESEARCH.md](docs/RESEARCH.md) | survey of handwriting generation, licences, choice of engine |
 | [docs/FAQ.md](docs/FAQ.md) | common questions |
 | [docs/PLAN.md](docs/PLAN.md) | project plan and status |
