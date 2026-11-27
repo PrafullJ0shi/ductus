@@ -124,7 +124,7 @@ Single letters cut from joined-up writing are often broken, so treat these rates
 Letter and digit variants (your `1`, `7`, `4`), how often each form appears, i-dot and t-cross
 placement, and arrow, tick and circle shapes copied from your pages need a fine-tune on your
 own line crops or stroke separation. They are marked deferred in [REALISM.md](REALISM.md) and
-are roadmap item 1 in the [README](../README.md#v2-roadmap).
+are roadmap item 1 in the [README](ROADMAP_V2.md).
 
 ## What to collect
 

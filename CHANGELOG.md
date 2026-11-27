@@ -2,7 +2,10 @@
 
 All notable changes are listed here. Versions follow semantic versioning.
 
-## Unreleased
+## 1.0.0 - 2026-11-27
+
+First stable release. Benchmark: normalised CER 0.038 (raw 0.108) on the 4 main test lines,
+61 s per benchmark page on a CPU. The blind test is not passed yet (see [BLIND_TEST.md](docs/BLIND_TEST.md)).
 
 - Default writer is the Graves RNN (plain, print-like letters), with diffusion as the fallback
   for words it cannot write or that still fail the read-back (`--engine`).
@@ -19,6 +22,21 @@ All notable changes are listed here. Versions follow semantic versioning.
 - Human-error pass on the laid-out page (`--humanize`): size and baseline drift, retouched letters.
 - Word cache: re-rendering the same text with other pens, paper or photo settings reuses the
   generated words (`--no-cache` to disable).
+- Speed: `--fast` draft mode, the OCR image encoder in ONNX Runtime when installed, skipped
+  word reads and best-of-N candidates for stubborn words.
+- Word bank: words that passed the read-back are reused across runs, shared by `--fast` and
+  full runs (on in the CLI, off in the API; `--no-bank` to disable).
+- Hand-ruled page borders and margin lines (`--border`, `--border-inset`, `--border-header`).
+- `ductus charset`: trace your own capitals, digits and symbols from a photo of a character
+  sheet; they replace the template shapes.
+- Read-back rejects `l`/`t` swaps (word cache version 32).
+- Style profiles from photos: paper mask, blob removal, rotation by OCR confidence, spectral
+  grid period, line chaining with dots attached, and steadier pitch, slope and margin measures.
+- Realism switches for pressure, skips, blobs, pitch and stroke width (off by default).
+- Blind test: photo-matched run in the writer's own profile with logistic, CNN and fine-tuned
+  ResNet-18 detectors (98.5% on 3 real pages), `scripts/blind_iter.py` and
+  `blind_test.py --strong`.
+- Docs: [ROADMAP_V2.md](docs/ROADMAP_V2.md).
 
 ## 0.1.0 - 2026-11-26
 

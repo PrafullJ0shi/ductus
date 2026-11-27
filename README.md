@@ -28,32 +28,44 @@ demos such as [greydanus/scribe](https://github.com/greydanus/scribe).
 
 ## Status
 
-Early, and small. What is true today:
+Version 1.0.0. Small tests, honest numbers. What is true today:
 
-- It reads well on plain prose. On the 7-line test in [docs/BENCHMARK.md](docs/BENCHMARK.md) it
-  is level with fonts on the prose lines but behind a handwriting font and the 2018 RNNs on
-  average, mostly because of the maths line.
+- It reads well. On the 7-line test in [docs/BENCHMARK.md](docs/BENCHMARK.md) the normalised
+  character error rate on the 4 main lines is 0.038 (raw 0.108), ahead of the 2018 RNNs
+  (0.084 and 0.124) and behind a handwriting font (0.000). Maths is the weakest line (0.15).
 - It is slow on a CPU compared with fonts and RNNs, because of the OCR read-back: an 84-word
   page took 167 s by default and 37 s with `--fast` on a shared 8-core box
-  ([round 6](docs/BENCHMARK.md#round-6-speed)).
+  ([round 6](docs/BENCHMARK.md#round-6-speed)); the 7-line benchmark page took 61 s.
+- It does not pass a blind test yet. A fine-tuned ResNet-18 tells the writer's real
+  photographed lines from ductus lines in his own profile 98.5% of the time
+  ([docs/BLIND_TEST.md](docs/BLIND_TEST.md#photo-matched-run)).
 - It never repeats an identical letter shape (glyph twin rate 0.000 in the benchmark); fonts
   do.
 - Maths and notes layouts, a personal style profile and a phone-photo look are things the
   tools in that benchmark do not have.
 - The tests are small: 7 lines, one sample each. Treat the numbers as indications.
 
-## Quick start
+## Install
 
 ```bash
 git clone https://github.com/PrafullJ0shi/ductus && cd ductus
+python -m venv .venv && . .venv/bin/activate
 pip install -e ".[model,pdf]"
+pip install onnxruntime            # optional: faster OCR read-back on the CPU
 # plain RNN letters (the default writer): the pretrained model and a Python with TensorFlow 2
 git clone https://github.com/Grzego/handwriting-generation ~/.cache/ductus/handwriting-generation
 export DUCTUS_RNN_PYTHON=/path/to/python-with-tensorflow
-ductus write examples/definitions.txt -o out/defs --mode notes
 ```
 
-This writes `out/defs.png` and `out/defs.pdf` (A4, 300 dpi) and prints a JSON line with
+## Quick start
+
+```bash
+ductus write --text "Hello from ductus" -o out/hello                 # one line, clean A4
+ductus write examples/definitions.txt -o out/defs --mode notes       # notes with arrows
+ductus write examples/maths.txt -o out/maths --mode maths --fast     # draft speed
+```
+
+The second command writes `out/defs.png` and `out/defs.pdf` (A4, 300 dpi) and prints a JSON line with
 statistics. Requires Python 3.10 or newer; no GPU is needed.
 
 The first run downloads the DiffBrush checkpoint (1.2 GB), the Stable Diffusion 1.5 VAE and
@@ -61,6 +73,24 @@ TrOCR from public links; no account is needed. The RNN runs as a separate proces
 Python in `DUCTUS_RNN_PYTHON`, from the checkout in `~/.cache/ductus/handwriting-generation`
 or `$DUCTUS_RNN_DIR`. Without the RNN, ductus uses the diffusion writer for every word: slower
 and less readable (round 1 in the benchmark).
+
+## Features
+
+- **Notes and maths.** `--mode notes` for headings, `Term :: meaning` definitions, lists,
+  ticks and corrections; `--mode maths` for fractions, roots, powers and worked steps.
+- **Hand-ruled borders.** `--border box`, `box-margin` or `margin` draws a ruled box and/or
+  margin line in the pen's ink, slightly uneven on every page ([docs/PAGES.md](docs/PAGES.md)).
+- **Read-back.** Every word is checked by OCR and rewritten if it does not read; `l` written
+  so it reads as `t` (and the reverse) is rejected.
+- **Speed.** `--fast` gives draft speed (a smaller OCR, fewer rewrite rounds, no diffusion
+  fallback). The OCR image encoder runs in ONNX Runtime when it is installed.
+- **Word bank.** Words that passed the read-back are kept and reused in later runs, so repeated
+  vocabulary is fast. On by default in the CLI, off in the Python API; `--no-bank` turns it off.
+- **Pens, ink and paper.** Six pens, three tips, a measured ink model; white, ruled or grid paper.
+- **Phone photos.** `--photo a4` (loose sheet on a desk) or `--photo notebook` (spiral grid pad).
+- **Your own hand.** `ductus style` measures size, spacing, slant and habits from photos of
+  your pages; `ductus charset` traces your capitals, digits and symbols from a photo of a
+  character sheet.
 
 ## Examples
 
@@ -88,8 +118,12 @@ ductus write --text "Hello from ductus" -o out/hello --pen fountain --animate
 ductus write notes.txt -o out/photo --photo --pen black-gel --tip 0.7      # loose A4 sheet
 ductus write notes.txt -o out/pad --photo notebook                          # spiral grid notebook
 
+ductus write notes.txt -o out/file --border box-margin                     # ruled box and margin
+ductus write notes.txt -o out/draft --fast --no-bank                        # draft, no word bank
+
 # your own hand: build a profile from photos of your pages, then write with it
 ductus style page1.jpg page2.jpg page3.jpg -o styles/my-hand
+ductus charset charset.jpg --style styles/my-hand                           # your A-Z, 0-9, symbols
 ductus write notes.txt -o out/mine --style styles/my-hand --look profile --mode notes
 ```
 
@@ -179,14 +213,15 @@ Details and sources: [docs/REALISM.md](docs/REALISM.md#g-the-realism-package-src
 From [docs/BENCHMARK.md](docs/BENCHMARK.md): 7 test lines, one sample each, judged by
 `trocr-large-handwritten` (a different OCR model from the one ductus uses for its own check).
 Normalised character error rate on the 4 main lines (short sentence, definition, maths,
-pangram); lower reads better. The ductus rows are rounds 1 to 4 of the same benchmark; machine
+pangram); lower reads better. The ductus rows are rounds 1 to 6 of the same benchmark; machine
 load differed between rounds, so the speed column is only a rough guide.
 
 | System | norm CER | Capitals | Digits | Repeated glyphs | s per line (CPU) |
 |---|---|---|---|---|---|
 | Handwriting font (Caveat, via text-to-handwriting) | **0.000** | 0.000 | 0.037 | 46% of shapes | 0.7 |
 | sjvasquez RNN (2018) | 0.084 | 1.500 | 0.482 | 0% | 2.7 |
-| **ductus, current (round 5)** | **0.038** | **0.000** | 0.037 | 0% | 12 |
+| **ductus 1.0 (round 6, `--no-bank`)** | **0.038** | **0.000** | 0.037 | 0% | 61 s per page |
+| ductus, round 5 | 0.038 | 0.000 | 0.037 | 0% | 12 |
 | ductus, round 4 (template numbers, symbols, capitals) | 0.122 | 0.000 | 0.037 | 0% | 77 (loaded machine) |
 | ductus, round 3 (cursive r/f, template M/R/H/E/N) | 0.093 | 0.136 | 0.111 | 0% | 38 |
 | ductus, round 2 (RNN letters + diffusion fallback) | 0.113 | 0.227 | 0.185 | 0% | 23 |
@@ -200,6 +235,8 @@ What this says, without spin:
   error is the judge not reading drawn `=` marks and stacked fractions.
 - It is ahead of the 2018 RNNs on these lines (0.038 against 0.084 and 0.124) but not level with a font, and it is slower than both on a loaded machine.
 - n = 7 lines; a single bad word moves a line's CER by 10 to 15 points.
+- Raw CER (no case or punctuation normalising) is 0.108 on the main lines; symbols on their
+  own line still read badly raw (0.435).
 - An earlier 40-sentence evaluation of the diffusion-only version, and a blind real-versus-
   generated test that is not yet at chance, are in [docs/EVALUATION.md](docs/EVALUATION.md)
   and [docs/COMPARISON.md](docs/COMPARISON.md).
@@ -209,7 +246,8 @@ What this says, without spin:
 - [docs/VERSUS.md](docs/VERSUS.md): the same text from a handwriting font, two RNNs and ductus,
   with readability, repetition and speed side by side.
 - [docs/BLIND_TEST.md](docs/BLIND_TEST.md): can a classifier tell real handwriting from ductus?
-  So far it can, every time. Results, method and caveats are published
+  So far it can, every time: in the writer's own profile, logistic regression 91.3%, a small
+  CNN 69.9% and a fine-tuned ResNet-18 98.5% (3 real pages). Results, method and caveats are published
   ([`benchmark/blind_test.csv`](benchmark/blind_test.csv)).
 - [docs/WHY_DUCTUS.md](docs/WHY_DUCTUS.md): ten differences from a font and from the 2018
   RNNs, each with a measured number or a file, and what it does not do yet.
@@ -222,8 +260,15 @@ What this says, without spin:
   renderer.
 - A personal profile copies size, spacing, slant, ink and habits. Letter shapes are copied only
   with `--engine diffusion` or `auto`, at a cost in speed and readability.
-- The output is not guaranteed to fool a person or a detector. See
-  [docs/EVALUATION.md](docs/EVALUATION.md).
+- **The blind test is not passed.** Detectors still tell real from generated lines (ResNet-18
+  98.5%, fooled 1.5% of the time), measured on only 3 real pages. See
+  [docs/BLIND_TEST.md](docs/BLIND_TEST.md).
+- `ductus charset` shapes are used for template capitals, digits and symbols, not yet for
+  lowercase letters inside words.
+- Known loose ends: occasional `l`/`t` look-alikes that still pass, a stray dot left of a
+  digit run, and a stray mark seen once with the word bank. Listed in
+  [docs/ROADMAP_V2.md](docs/ROADMAP_V2.md).
+- Slow on a CPU (about a minute per short page); GPU timings are not measured.
 
 ## Documentation
 
@@ -247,38 +292,13 @@ What this says, without spin:
 | [docs/RESEARCH.md](docs/RESEARCH.md) | survey of handwriting generation, licences, choice of engine |
 | [docs/FAQ.md](docs/FAQ.md) | common questions |
 | [docs/PLAN.md](docs/PLAN.md) | project plan and status |
+| [docs/ROADMAP_V2.md](docs/ROADMAP_V2.md) | plan for version 2 |
 | [CONTRIBUTING.md](CONTRIBUTING.md), [CHANGELOG.md](CHANGELOG.md), [DESIGN.md](DESIGN.md) | contributing, changes, visual rules for docs |
 
-## V2 roadmap
+## Roadmap
 
-Ten features planned for the next major version, in rough order. Items marked *revenue* are
-ways the project can pay for its own compute.
-
-1. **Fine-tune on your own pages.** A short LoRA fine-tune of the style encoder and UNet on
-   the line crops from `ductus style`, so personal glyphs (your `g`, your `7`) are copied, not
-   approximated. Runs on a free Colab GPU in about 20 minutes.
-2. **Full character set.** Train the content encoder on a wider glyph set so `=`, `%`, `@`,
-   `<`, `>`, accented Latin and currency signs are written by the model instead of drawn as
-   marks or replaced.
-3. **GPU timings and half precision.** CUDA and MPS are used automatically when present but
-   have not been timed; half precision and a batched DDIM sampler are not done.
-4. **Stroke output.** Vectorise generated words into centre-line pen paths, so pen plotters
-   (AxiDraw and similar) can write the page with a real pen, and the animated SVG follows the
-   real stroke order.
-5. **Hosted web app** (*revenue*). A free tier for short notes in preset styles, and a paid
-   tier for personal styles, full pages, PDF export and priority GPU queue.
-6. **Pen-plotter card service** (*revenue*). Upload a style once; order greeting cards,
-   thank-you notes or letters that a plotter writes in real ink and posts.
-7. **REST API and SDKs** (*revenue*). `POST /write` with text, style and options; returns PNG,
-   PDF or SVG. Metered usage for app builders (note-taking apps, design tools, education).
-8. **Style marketplace** (*revenue*). Writers publish consented, verified style profiles and
-   earn a share each time their style is used. Consent and identity checks are built in;
-   signatures are never offered.
-9. **Editor plug-ins.** Figma, Canva, Notion and Obsidian plug-ins that turn a text block into
-   handwriting in place, plus a LaTeX/Markdown importer for full maths notation.
-10. **Provenance by default.** An invisible watermark and a C2PA manifest in every output, and
-    a public detector, so generated pages can always be identified. This keeps the tool on the
-    right side of academic and legal use.
+What comes after 1.0 (blind-test realism, GPU timings, a hosted service, the loose ends) is in
+[docs/ROADMAP_V2.md](docs/ROADMAP_V2.md).
 
 ## Responsible use
 

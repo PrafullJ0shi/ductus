@@ -4,8 +4,8 @@ title: "ductus: human-looking handwriting on A4 with one-shot style imitation an
 authors:
   - family-names: Joshi
     given-names: Prafull
-version: 0.1.0
-date-released: 2026-11-26
+version: 1.0.0
+date-released: 2026-11-27
 license: MIT
 repository-code: "https://github.com/PrafullJ0shi/ductus"
 keywords: [handwriting synthesis, handwritten text generation, diffusion, OCR, document layout]
