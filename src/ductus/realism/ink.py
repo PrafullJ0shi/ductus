@@ -431,20 +431,36 @@ def ink_from_mask(coverage: np.ndarray, dpi: float = 300, pen: str | Pen = DEFAU
     streak = np.take_along_axis(bank, sel[None], 0)[0]
     streak /= max(1e-6, float(streak.std()))
     flow = _noise2d(cov.shape, rng, 40 * px600)
+    from . import knobs
     conc = pen.density * (1 + pen.flow_var * 1.5 * flow) * (1 - pen.speed_fade * 0.5 * (coh - 0.5))
+    press = float(knobs.get("press", 0.0))
+    if press:
+        # pressure: downstrokes are pressed harder than upstrokes and joins, and pressure
+        # drifts slowly along the line
+        vert = np.abs(np.sin(theta)) * np.clip(coh * 1.5, 0, 1)
+        slow = _noise2d(cov.shape, rng, 90 * px600)
+        conc *= 1 + press * (0.6 * (vert - 0.5) + 0.35 * slow)
     conc *= 1 - pen.striation * 0.8 * np.clip(streak * 0.5 + 0.2, 0, 1) * (pen.striation > 0)
-    if pen.skips > 0:
-        gap = np.clip(streak - (2.6 - 1.2 * pen.skips), 0, 1) * (coh > 0.75)
+    skips = pen.skips * float(knobs.get("skips_x", 1.0))
+    if skips > 0:
+        gap = np.clip(streak - (2.6 - 1.2 * skips), 0, 1) * (coh > 0.75)
         conc *= 1 - 0.7 * cv2.GaussianBlur(gap, (0, 0), 0.7)
     # blobs at end points of a crude skeleton
     bw = (cov > 0.5).astype(np.uint8)
     sk = _skeleton(bw)
     nb = cv2.filter2D(sk.astype(np.float32), -1, np.ones((3, 3), np.float32)) * sk
     ends = (nb == 2).astype(np.float32)
-    ends *= rng.random(ends.shape) < pen.blob_rate * 1.5
+    taper = float(knobs.get("taper", 0.0))
+    if taper:
+        # flying starts and ends: ink thins out over the last stretch of a free stroke end
+        tl = max(2.0, 6 * px600)
+        near = cv2.GaussianBlur(ends, (0, 0), tl)
+        near /= max(1e-6, float(near.max()))
+        conc *= 1 - taper * 0.6 * np.clip(near * 2.5, 0, 1)
+    ends *= rng.random(ends.shape) < pen.blob_rate * 1.5 * float(knobs.get("blob_rate_x", 1.0))
     bl = cv2.GaussianBlur(ends, (0, 0), max(1.0, 2.5 * px600))
     bl /= max(1e-6, float(bl.max()))
-    conc = conc + pen.blob * bl
+    conc = conc + pen.blob * float(knobs.get("blob_x", 1.0)) * bl
     conc = np.clip(conc, 0.1, 3) * cov
     conc = _finish(conc, pen, px600, rng)
     return concentration_to_rgba(conc, pen)
