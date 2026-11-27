@@ -100,6 +100,8 @@ cross-validation grouped by source line.
 | 3 IAM writers, flat-ink renderer, style from one line | 235 / 235 | 93.6% (sd 3.1) | 90.6% (sd 6.0) |
 | 3 IAM writers, default hand (no style image), current engine and ink | 258 / 258 | 98.5% (sd 1.9) | 98.5% (sd 1.6) |
 | same default-hand run, binarized (letter shape only) | 258 / 258 | 94.6% (sd 1.4) | 91.1% (sd 5.0) |
+| style-matched: the writer's own profile (12 real line crops, 12 generated), round 4 engine | 53 / 53 | 100% (sd 0) | 53% (sd 26, near chance) |
+| same, binarized | 53 / 53 | 100% (sd 0) | 51% (sd 17, near chance) |
 
 This is far from chance. **ductus output is not indistinguishable from real writing in these
 tests.** The first row copies a style from one reference line per writer
@@ -108,8 +110,16 @@ default hand, with no style image ([`scripts/blind_default.py`](../scripts/blind
 same 3 writers and 20 WikiText lines each, current RNN writer, cursive `r`/`f` and ink model).
 A high score on the default-hand run is expected, because it is not trying to match those
 writers. Even so, 98.5% (and 94.6% / 91.1% after binarizing, so the cue is not only ink
-texture) means the classifier has easy letter-shape and spacing cues. A style-matched re-run
-with the current engine, and a test on the writer's own pages, are still outstanding.
+texture) means the classifier has easy letter-shape and spacing cues.
+
+The style-matched run used the writer's profile (12 reference line crops against 12 lines
+written in that hand, round 4 engine). It is a very small test, 53 windows per class. The
+logistic classifier separated them perfectly, so the generated lines are not indistinguishable
+from the real ones. The small CNN scored near chance, but with 53 windows per class it has too
+little data to learn anything, so that number says nothing about realism. The real crops also
+come from a phone photo of a notebook page and the generated lines from a renderer, a capture
+difference the classifier may be using. Read it as "not yet convincing", not as a measured
+gap. The writer's crops stay private and are not in the repository.
 
 **(b) Reviewers.** `blind_test.py` writes a shuffled 24-tile sheet and a separate answer key.
 Reviewers (people or fresh vision-model reviewers who have not seen the key) mark each tile
