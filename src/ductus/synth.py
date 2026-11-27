@@ -119,6 +119,7 @@ class Synthesizer:
     templates: bool = False        # numbers, symbols and capital-only tokens drawn from printglyphs
     checker: object | None = None  # larger OCR model that re-reads what `reader` (a fast one) rejects
     deadline: float | None = None  # time.time() after which no new rewrite round starts
+    bank: object | None = None     # wordbank.Bank: verified words kept between runs
     mess: float = 0.3
 
     def _carriers(self, words: list[tuple[int, str]], rng: random.Random):
@@ -183,11 +184,25 @@ class Synthesizer:
             pending = [(wid, w) for wid, w in pending if wid not in best]
             if best:
                 self.log(f"templates: {len(best)} number, symbol and capital tokens drawn")
+        banked = set()
+        if self.bank is not None and pending:
+            for wid, w in pending:
+                v = self.bank.take(w)
+                if v is not None:
+                    best[wid] = v
+                    banked.add(wid)
+            pending = [(wid, w) for wid, w in pending if wid not in best]
+            if banked:
+                self.log(f"word bank: {len(banked)} words taken")
         seed = self.seed
         gen_lines = 0
+        best_of = int(__import__("os").environ.get("DUCTUS_BEST_OF", "1"))
+        skip_until = 0
         for rnd in range(self.rounds):
             if not pending:
                 break
+            if rnd < skip_until:
+                continue                         # those rounds ran as parallel candidates
             if rnd and self.deadline is not None and __import__("time").time() > self.deadline:
                 self.log(f"time budget reached: {len(pending)} words keep their best attempt")
                 break
@@ -202,6 +217,11 @@ class Synthesizer:
                 eng.round = rnd                  # the RNN writes neater on later rounds
             self._solo_ok = getattr(eng, "name", "") == "rnn"
             self._solo_all = rnd >= 2 and self._solo_ok   # a crop from a line of one word cannot belong to another word
+            if best_of > 1 and self._solo_all and eng is self.engine:
+                # several candidates of each stubborn word in one batch instead of one per round
+                n_c = max(1, min(best_of, self.primary_rounds - rnd))
+                todo = [x for x in todo for _ in range(n_c)]
+                skip_until = rnd + n_c
             carriers = self._carriers(todo, rng)
             self.log(f"round {rnd + 1} ({getattr(eng, 'name', 'diffusion')}): {len(todo)} words in {len(carriers)} lines")
             for i in range(0, len(carriers), self.batch):
@@ -245,8 +265,14 @@ class Synthesizer:
                                                   max_tokens=[_cap(" ".join(w for _, w in p_[0])) for p_ in prepped])
                     # word-level read-back as a second opinion (catches split errors and
                     # misspellings the line-level language prior quietly corrects)
-                    word_reads_all = self.reader.read([it[3] for p_ in prepped for it in p_[6]],
-                                                      max_tokens=[_cap(it[1]) for p_ in prepped for it in p_[6]])
+                    # crops whose word read cannot change the verdict are not read: words
+                    # already rejected by a shape check, and short plain words the line read judges
+                    flat = [(p_, it) for p_ in prepped for it in p_[6]]
+                    need = [self._needs_word_read(eng, p_, n_) for p_ in prepped for n_ in range(len(p_[6]))]
+                    got = iter(self.reader.read([it[3] for (p_, it), nd in zip(flat, need) if nd],
+                                                max_tokens=[_cap(it[1]) for (p_, it), nd in zip(flat, need) if nd]))
+                    word_reads_all = [next(got) if nd else "" for nd in need]
+                    self.stats["word_reads_skipped"] = self.stats.get("word_reads_skipped", 0) + need.count(False)
                 scored = []
                 wpos = 0
                 for li, (group, img, bl, xh, real, cw, items) in enumerate(prepped):
@@ -282,12 +308,31 @@ class Synthesizer:
         self.stats = {"flourish_rejects": self.stats.get("flourish_rejects", 0), "lines_generated": gen_lines, "words": len(texts),
                       "template_words": sum(1 for v in best.values() if v.template),
                       "still_failing": len(pending), "rounds_used": rnd + 1,
-                      "rechecked": self.stats.get("rechecked", 0)}
+                      "rechecked": self.stats.get("rechecked", 0),
+                      "word_reads_skipped": self.stats.get("word_reads_skipped", 0)}
+        if self.bank is not None:
+            for wid, v in best.items():
+                if wid not in banked and not v.template and (1.0 - v.score) <= self.max_cer:
+                    self.bank.add(v)
+            self.stats.update(self.bank.stats)
         missing = [wid for wid, _ in enumerate(texts) if wid not in best]
         if missing:
             raise RuntimeError(f"could not synthesise {len(missing)} words, e.g. {texts[missing[0]]!r}")
         return [best[i] for i in range(len(texts))]
 
+
+    def _needs_word_read(self, eng, p_, n: int) -> bool:
+        group, img, bl, xh, real, cw, items = p_
+        wid, w, sub, _, k, ratio = items[n]
+        if __import__("os").environ.get("DUCTUS_SKIP_READS", "1") == "0":
+            return True
+        lw = normalise(w)
+        if (len(lw) < 3 and not any(c.isdigit() for c in w) and not any(c in "rfRM" for c in w)
+                and not w[:1].isupper()):
+            return False                 # e_word = e_line; no other rule looks at this read
+        ideal = self._score(eng, group, w, k, n, [x for _, x in group], [x[1] for x in items],
+                            sub, bl, xh, cw, ratio, count=False)
+        return ideal <= self.max_cer     # a shape check fails it whatever the reads say
 
     def _recheck(self, eng, prepped, scored) -> None:
         """Second reader for the words the fast first reader rejected. The first pass reads

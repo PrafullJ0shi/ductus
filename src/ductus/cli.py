@@ -25,7 +25,7 @@ def cmd_write(a):
                 corrections=a.corrections, pen=a.pen, tip=a.tip, weight=a.weight,
                 flat_ink=a.flat_ink, ink_model=a.ink_model, humanize=a.humanize, size=a.size,
                 border=a.border, border_inset=a.border_inset, border_header=a.border_header,
-                ocr=a.ocr, fast=a.fast, budget=a.budget,
+                ocr=a.ocr, fast=a.fast, budget=a.budget, bank=not a.no_bank,
                 log=(lambda *x: None) if a.quiet else (lambda *x: print(*x, file=sys.stderr)))
     w = Writer(steps=a.steps, verify=not a.no_verify)
     r = w.write(text, o)
@@ -115,6 +115,8 @@ def main(argv=None):
                    help="draft speed: small OCR model only, 4 rewrite rounds, no diffusion fallback (a few more rough words)")
     w.add_argument("--ocr", default="cascade", choices=["cascade", "base", "small"],
                    help="read-back model: cascade (default; small model first, trocr-base re-reads its rejects), base (old, slower) or small")
+    w.add_argument("--no-bank", action="store_true",
+                   help="do not take words from the word bank of earlier runs (or add to it); see wordbank.py")
     w.add_argument("--budget", type=float, help="seconds after which no new rewrite round starts; words keep their best attempt")
     w.add_argument("--engine", default="default", choices=["default", "rnn", "diffusion", "auto"],
                    help="default: RNN letters (plain, readable, fast) when installed, else diffusion; "

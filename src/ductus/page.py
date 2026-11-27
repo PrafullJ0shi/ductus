@@ -92,6 +92,7 @@ class Options:
     ocr: str = "cascade"             # read-back: cascade (small model first, base for rejects) | base | small
     fast: bool = False               # draft speed: small OCR only, fewer rewrite rounds, no diffusion fallback
     budget: float | None = None      # seconds after which no new rewrite round starts (best attempt kept)
+    bank: bool = False               # reuse verified words from earlier runs (wordbank.py); the CLI turns it on
     log: object = print
 
 
@@ -227,6 +228,10 @@ class Writer:
         ckey = _cache_key(texts, o, max_cer, o.steps)
         cached = _cache_get(ckey) if o.cache else None
         # several reference lines from a personal profile -> rotate them for natural variety
+        bank = None
+        if o.bank and o.verify and cached is None:
+            from .wordbank import Bank, signature
+            bank = Bank(signature(o, max_cer, _style_sig(o)), seed=o.seed + int(time.time()))
         chunks = np.array_split(np.arange(len(texts)), max(1, min(len(refs), (len(texts) + 39) // 40)))
         stats = {"lines_generated": 0, "still_failing": 0}
         for ci, idx in enumerate(chunks if cached is None else []):
@@ -235,7 +240,7 @@ class Writer:
             ref = refs[ci % len(refs)]
             prim, fb, pr = self.engines(o)
             rd, chk = self.readers(o)
-            syn = Synthesizer(prim, ref, rd, checker=chk, deadline=(t0 + o.budget) if o.budget else None, fallback=fb, primary_rounds=pr, fallback_all=o.engine == "auto", max_cer=max_cer,
+            syn = Synthesizer(prim, ref, rd, checker=chk, bank=bank, deadline=(t0 + o.budget) if o.budget else None, fallback=fb, primary_rounds=pr, fallback_all=o.engine == "auto", max_cer=max_cer,
                               loose=personal, seed=o.seed * 1000 + ci * 37, log=o.log,
                               strict=strict, rounds=(pr + 2) if fb is not None and pr < 99 else (5 if o.look == "neat" else 4), plain=_plain_letters(o), letter_profile=_letters(o.style), templates=o.glyphs != "off", mess=look.mess)
             words += syn.run([texts[i] for i in idx])
@@ -437,8 +442,8 @@ def _cache_dir():
     return Path(os.environ.get("DUCTUS_CACHE", Path.home() / ".cache" / "ductus" / "words"))
 
 
-def _cache_key(texts, o, max_cer, steps) -> str:
-    import hashlib, json
+def _style_sig(o):
+    import hashlib
     sig = o.style
     if o.style:
         from pathlib import Path
@@ -446,6 +451,12 @@ def _cache_key(texts, o, max_cer, steps) -> str:
         f = sp / "profile.json" if sp.is_dir() else sp
         if f.exists():
             sig = [o.style, hashlib.sha1(f.read_bytes()).hexdigest()]
+    return sig
+
+
+def _cache_key(texts, o, max_cer, steps) -> str:
+    import hashlib, json
+    sig = _style_sig(o)
     k = json.dumps([CACHE_VERSION, o.engine, o.rnn_style, o.rnn_bias, o.glyphs, texts, sig, o.look, o.seed, max_cer, o.verify, steps, o.mode, o.plain, o.legibility,
                     "small" if o.fast else o.ocr, o.fast], default=str)
     return hashlib.sha1(k.encode()).hexdigest()
