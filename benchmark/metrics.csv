@@ -9,3 +9,4 @@ hws_b075_s9,sjvasquez (2018),"Graves model, style 9, bias 0.75, TF2 port",0.191,
 tth_homemade,text-to-handwriting,site default font Homemade Apple,0.119,0.03,0.0,0.0,0.05,0.0698,0.3182,0.037,0.3478,0.266,79,26/26,12/12,4/10,0.79,,MIT site; font Apache-2.0,
 tth_caveat,text-to-handwriting,font Caveat,0.088,0.0,0.0,0.0,0.0,0.0,0.0,0.037,0.4783,0.462,158,26/26,12/12,6/10,0.7,,MIT site; font OFL,
 tth_liujian,text-to-handwriting,font Liu Jian Mao Cao,0.109,0.031,0.0,0.0,0.1,0.0233,0.0909,0.0741,0.4348,0.357,129,26/26,12/12,2/10,0.78,,MIT site; font OFL,
+ductus_v6,"ductus natural, round 6","CLI default with --no-bank (round 5 + l/t swaps rejected at read-back, speed round: ONNX encoder, small-model first pass, three candidates per stubborn word), --look natural, seed 0",0.108,0.038,0.0,0.0,0.15,0.0,0.0,0.037,0.4348,0.0,151,26/26,9/12,0/10,8.54,61.4,"MIT code; RNN weights trained on IAM-OnDB, DiffBrush fallback weights trained on IAM (research use)",0

@@ -89,5 +89,12 @@
   "family": "font",
   "license": "MIT site; font OFL",
   "speed": "0.78 s/line, OCR normCER 0.031"
+ },
+ {
+  "id": "ductus_v6",
+  "label": "ductus natural, round 6",
+  "settings": "CLI default with --no-bank (round 5 + l/t swaps rejected at read-back, speed round: ONNX encoder, small-model first pass, three candidates per stubborn word), --look natural, seed 0",
+  "family": "ductus",
+  "license": "MIT code; RNN weights trained on IAM-OnDB, DiffBrush fallback weights trained on IAM (research use)"
  }
 ]
