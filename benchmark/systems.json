@@ -22,6 +22,13 @@
   "license": "MIT code; RNN weights trained on IAM-OnDB, DiffBrush fallback weights trained on IAM (research use)"
  },
  {
+  "id": "ductus_v5",
+  "label": "ductus natural, round 5",
+  "settings": "CLI default (round 4 + a last short word or two may run into the margin instead of wrapping; larger, tighter superscripts and fractions), --look natural, seed 0",
+  "family": "ductus",
+  "license": "MIT code; RNN weights trained on IAM-OnDB, DiffBrush fallback weights trained on IAM (research use)"
+ },
+ {
   "id": "ductus_neat",
   "label": "ductus neat",
   "settings": "--look neat (preset upright), seed 0",

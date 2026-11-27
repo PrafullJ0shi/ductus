@@ -10,7 +10,7 @@
   <img alt="Python 3.10+" src="https://img.shields.io/badge/python-3.10%2B-1C2A6E">
   <img alt="Runs on CPU" src="https://img.shields.io/badge/runs%20on-CPU-1C2A6E">
   <img alt="Engines: Graves RNN and DiffBrush" src="https://img.shields.io/badge/engines-Graves%20RNN%20%2B%20DiffBrush-1C2A6E">
-  <a href="docs/BENCHMARK.md"><img alt="Benchmark: OCR CER 0.122 on 4 test lines" src="https://img.shields.io/badge/OCR%20CER-0.122%20(4%20lines)-1C2A6E"></a>
+  <a href="docs/BENCHMARK.md"><img alt="Benchmark: OCR CER 0.038 on 4 test lines" src="https://img.shields.io/badge/OCR%20CER-0.038%20(4%20lines)-1C2A6E"></a>
 </p>
 
 **ductus** turns text into handwritten A4 pages: notes with arrows and ticks, worked maths
@@ -184,7 +184,8 @@ load differed between rounds, so the speed column is only a rough guide.
 |---|---|---|---|---|---|
 | Handwriting font (Caveat, via text-to-handwriting) | **0.000** | 0.000 | 0.037 | 46% of shapes | 0.7 |
 | sjvasquez RNN (2018) | 0.084 | 1.500 | 0.482 | 0% | 2.7 |
-| **ductus, current (round 4: template numbers, symbols, capitals)** | 0.122 | **0.000** | 0.037 | 0% | 77 (loaded machine) |
+| **ductus, current (round 5)** | **0.038** | **0.000** | 0.037 | 0% | 12 |
+| ductus, round 4 (template numbers, symbols, capitals) | 0.122 | 0.000 | 0.037 | 0% | 77 (loaded machine) |
 | ductus, round 3 (cursive r/f, template M/R/H/E/N) | 0.093 | 0.136 | 0.111 | 0% | 38 |
 | ductus, round 2 (RNN letters + diffusion fallback) | 0.113 | 0.227 | 0.185 | 0% | 23 |
 | Grzego RNN (2018) | 0.124 | 0.591 | 0.111 | 0% | 5.2 |
@@ -192,12 +193,10 @@ load differed between rounds, so the speed column is only a rough guide.
 
 What this says, without spin:
 
-- Round 4 fixed capitals (0.000) and digits (0.037, level with the fonts). Its main-line
-  average is worse than round 3 (0.122 against 0.093) because the pangram line wrapped this
-  time and the judge did not read the second line; the maths line stays at 0.350 because the
-  judge cannot read drawn fractions and `=` marks, though it now reads cleanly by eye.
-- It is still behind the sjvasquez RNN on average and far behind a font, and much slower than
-  both.
+- Rounds 4 and 5 drew numbers, symbols and capitals from templates and fixed a wrapped test
+  line: capitals 0.000, digits 0.037 (level with the fonts), maths 0.150. The remaining maths
+  error is the judge not reading drawn `=` marks and stacked fractions.
+- It is ahead of the 2018 RNNs on these lines (0.038 against 0.084 and 0.124) but not level with a font, and it is slower than both on a loaded machine.
 - n = 7 lines; a single bad word moves a line's CER by 10 to 15 points.
 - An earlier 40-sentence evaluation of the diffusion-only version, and a blind real-versus-
   generated test that is not yet at chance, are in [docs/EVALUATION.md](docs/EVALUATION.md)

@@ -284,6 +284,43 @@ What changed, honestly:
 - Speed: 532 s for the page (77 s per line) under a load of 12 to 15 from other jobs on the
   machine, so this time is not comparable with round 3.
 
+## Round 5: the pangram wrap fixed, maths read better
+
+Same 7 lines, same judge, same scripts. Changes since round 4: a short last word or two may run
+into the right margin instead of wrapping onto a new line alone (round 4's pangram lost "dog."
+that way, which inflated its average); superscripts and fractions are set larger and tighter.
+Nothing was changed for the judge's benefit: the test text, the settings and the seed are the
+same, and the same code also gives the maths and digits lines their new numbers.
+
+| System | norm CER, 4 main lines | raw CER, 4 main lines | short | definition | maths | pangram | caps (norm) | digits (norm) | symbols (raw) |
+|---|---|---|---|---|---|---|---|---|---|
+| ductus natural, round 3 | 0.093 | 0.150 | 0.000 | 0.000 | 0.350 | 0.023 | 0.136 | 0.111 | 0.609 |
+| ductus natural, round 4 | 0.122 | 0.185 | 0.000 | 0.000 | 0.350 | 0.140 | 0.000 | 0.037 | 0.478 |
+| **ductus natural, round 5** | **0.038** | **0.134** | 0.000 | 0.000 | **0.150** | 0.000 | 0.000 | 0.037 | 0.435 |
+| sjvasquez, bias 0.75 | 0.084 | 0.191 | 0.000 | 0.114 | 0.200 | 0.023 | 1.500 | 0.482 | 0.783 |
+| Grzego RNN, bias 1.5 | 0.124 | 0.201 | 0.000 | 0.171 | 0.300 | 0.023 | 0.591 | 0.111 | 0.826 |
+| text-to-handwriting, Caveat | 0.000 | 0.088 | 0.000 | 0.000 | 0.000 | 0.000 | 0.000 | 0.037 | 0.478 |
+
+What the judge read for ductus in round 5: short `Meet me at the library at 5 p.m.`;
+definition `Variance - mean of Squared deviations`; maths `mean # ft :6 and x2 :36 .`; pangram
+`The quick brown fox jumps over the lazy dog .`; caps `BTC NASA HTML GPU ICCV.`; digits
+`0123456789 and 3.4 and 2026`; symbols `# # ( ) at & ? # # #`.
+
+Read this honestly:
+
+- Main-line average 0.038 is ahead of sjvasquez (0.084) and Grzego (0.124), and behind only the
+  Caveat font (0.000). Of the four lines, three are 0.000 and the maths line is 0.150.
+- Round 4 to round 5 is mostly the pangram fix (0.140 to 0.000). That line is a lucky or
+  unlucky wrap away from moving 0.03 to 0.04 on the average; with 7 lines and one sample each,
+  differences of a few hundredths between rounds are within that noise.
+- Maths: 0.350 to 0.150. The judge still reads the drawn `=` as `#` or `:` and sometimes
+  loses the stacked fraction (re-writing the maths line alone with different seeds scored 0.10 to 0.35 before the size
+  change, 3 seeds, and 0.05 to 0.20 after, 4 seeds, so the gain is real but small and noisy).
+- Symbols raw 0.435 is still behind the fonts at 0.35 to 0.44; `%`, `+`, `;` and `:` are
+  read as `#` or dropped. The decimal in `3.14` is read as `3.4` (the dot is small).
+- Speed: 85 s for the page (12 s per line) on a lightly loaded machine (load 1 to 4), faster
+  than round 3 (38 s per line); template tokens skip the RNN and the read-back.
+
 ## Raw data
 
 Per-system numbers: [`benchmark/metrics.csv`](../benchmark/metrics.csv). Systems and settings:
