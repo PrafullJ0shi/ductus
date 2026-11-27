@@ -35,7 +35,7 @@ def bank_root() -> Path:
 def signature(o, max_cer: float, style_sig) -> str:
     """Settings that change how a word is written or judged (not the page look or the seed)."""
     k = [BANK_VERSION, o.engine, o.rnn_style, o.rnn_bias, o.glyphs, style_sig, max_cer, o.mode, o.plain,
-         o.legibility, "small" if getattr(o, "fast", False) else getattr(o, "ocr", "cascade")]
+         o.legibility]
     return hashlib.sha1(json.dumps(k, default=str).encode()).hexdigest()[:16]
 
 
@@ -58,12 +58,29 @@ def jitter(wi, rng: random.Random):
     return WordImage(wi.text, out, bl, wi.xheight * sy, wi.score, wi.read, wi.template)
 
 
+def _pack(wi):
+    """Ink coverage stored as 8 bits (a quarter of the float32 size; 1/255 steps are invisible)."""
+    import dataclasses
+    a = np.clip(np.asarray(wi.alpha, np.float32), 0, 1)
+    return dataclasses.replace(wi, alpha=np.round(a * 255).astype(np.uint8))
+
+
+def _unpack(wi):
+    import dataclasses
+    if wi.alpha.dtype == np.uint8:
+        return dataclasses.replace(wi, alpha=wi.alpha.astype(np.float32) / 255.0)
+    return wi
+
+
 class Bank:
-    def __init__(self, sig: str, per_word: int = 6, max_uses: int = 3, seed: int = 0):
+    def __init__(self, sig: str, per_word: int = 6, max_uses: int = 3, seed: int = 0, checked: str = "cascade"):
         self.dir = bank_root() / sig
         self.per_word, self.max_uses = per_word, max_uses
         self.rng = random.Random(seed * 7919 + 13)
         self.used: set[tuple[str, int]] = set()
+        # how this run's words are verified: "small" (--fast) runs may take any variant but
+        # their own go in marked, and runs with the full read-back never take those
+        self.checked = checked
         self.stats = {"bank_hits": 0, "bank_added": 0}
 
     def _file(self, word: str) -> Path:
@@ -88,7 +105,8 @@ class Bank:
     def take(self, word: str):
         """A jittered variant not used yet in this run, or None."""
         items = self._load(word)
-        free = [i for i, it in enumerate(items) if (word, it["id"]) not in self.used]
+        free = [i for i, it in enumerate(items) if (word, it["id"]) not in self.used
+                and (self.checked == "small" or it.get("checked", "cascade") != "small")]
         if not free:
             return None
         i = self.rng.choice(free)
@@ -99,14 +117,14 @@ class Bank:
             items.pop(i)
         self._save(word, items)
         self.stats["bank_hits"] += 1
-        return jitter(it["wi"], self.rng)
+        return jitter(_unpack(it["wi"]), self.rng)
 
     def add(self, wi) -> None:
         items = self._load(wi.text)
         if len(items) >= self.per_word:
             return
         nid = max([it["id"] for it in items], default=-1) + 1
-        items.append({"id": nid, "uses": 0, "wi": wi})
+        items.append({"id": nid, "uses": 0, "wi": _pack(wi), "checked": self.checked})
         self.used.add((wi.text, nid))             # written in this run: not taken again in it
         self._save(wi.text, items)
         self.stats["bank_added"] += 1

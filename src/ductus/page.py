@@ -231,7 +231,8 @@ class Writer:
         bank = None
         if o.bank and o.verify and cached is None:
             from .wordbank import Bank, signature
-            bank = Bank(signature(o, max_cer, _style_sig(o)), seed=o.seed + int(time.time()))
+            bank = Bank(signature(o, max_cer, _style_sig(o)), seed=o.seed + int(time.time()),
+                        checked="small" if (o.fast or o.ocr == "small") else "cascade")
         chunks = np.array_split(np.arange(len(texts)), max(1, min(len(refs), (len(texts) + 39) // 40)))
         stats = {"lines_generated": 0, "still_failing": 0}
         for ci, idx in enumerate(chunks if cached is None else []):
