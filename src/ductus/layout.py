@@ -296,7 +296,10 @@ class Layouter:
         x = x0 if first_x is None else first_x
         line_start = x0
         right = self.right - self.rng.uniform(0, self.xh * 2)
+        last_gap = 0.0
         for b in boxes:
+            if isinstance(b, SupBox) and last_gap > 0:
+                x -= last_gap - self.xh * 0.15        # a superscript sits right against its base
             over = x + b.width - right
             if (over > 0 and isinstance(b, WordBox) and over < self.look.squeeze * b.width
                     and x + b.width < self.right + self.xh and x > line_start + 1):
@@ -313,7 +316,8 @@ class Layouter:
             extra = 0.0
             if isinstance(b, WordBox) and b.text[-1:] in ",.;:":
                 extra = self.xh * self.look.punct_gap * self.rng.uniform(0, 1.6)
-            x += b.width * getattr(b, "sx", 1.0) + self.gap() + extra
+            last_gap = self.gap() + extra
+            x += b.width * getattr(b, "sx", 1.0) + last_gap
         return x, self.y
 
     def layout(self, blocks: list[Block]) -> list[Page]:
