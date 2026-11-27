@@ -21,7 +21,7 @@ ap.add_argument("style"); ap.add_argument("corpus"); ap.add_argument("real"); ap
 ap.add_argument("--pages", type=int, default=3); ap.add_argument("--words", type=int, default=130)
 ap.add_argument("--seed", type=int, default=1); ap.add_argument("--surface", default="notebook")
 ap.add_argument("--tag", default="run"); ap.add_argument("--knob", action="append", default=[])
-ap.add_argument("--verify", action="store_true")
+ap.add_argument("--verify", action="store_true"); ap.add_argument("--strong", action="store_true")
 a = ap.parse_args()
 for kv in a.knob:
     k, v = kv.split("=", 1)
@@ -53,13 +53,15 @@ res = {"tag": a.tag, "knobs": dict(knobs.K), "fake_crops": len(list(fake.glob("*
 here = Path(__file__).parent
 for mode in ("", "--binarize"):
     cmd = [sys.executable, str(here / "blind_test.py"), "--real", a.real, "--fake", str(fake),
-           "--out", str(out / ("bt" + mode.replace("-", "_")))] + ([mode] if mode else [])
+           "--out", str(out / ("bt" + mode.replace("-", "_")))] + ([mode] if mode else []) + (["--strong"] if a.strong else [])
     txt = subprocess.run(cmd, capture_output=True, text=True).stdout
     j = json.loads(txt[txt.index("{"):txt.rindex("}") + 1])
     key = "bin" if mode else "raw"
     res[key] = {"lr": round(j["hog_lbp_logreg_acc"][0], 3), "lr_sd": round(j["hog_lbp_logreg_acc"][1], 3),
                 "cnn": round(j["small_cnn_acc"][0], 3), "cnn_sd": round(j["small_cnn_acc"][1], 3),
                 "n": [j["windows_real"], j["windows_generated"]]}
+    if "resnet18_ft_acc" in j:
+        res[key]["resnet"] = round(j["resnet18_ft_acc"][0], 3); res[key]["resnet_sd"] = round(j["resnet18_ft_acc"][1], 3)
 res["secs"] = round(time.time() - t0)
 print(json.dumps(res))
 with open(Path(a.out) / "results.jsonl", "a") as fh:

@@ -284,6 +284,32 @@ REALISM_PENS = {"blue-ballpoint": "ballpoint-blue", "black-ballpoint": "ballpoin
                 "black-gel": "gel-black", "fountain": "fountain", "pencil": "pencil"}
 
 
+def pressure(cov: np.ndarray, seed: int) -> np.ndarray:
+    """Pen pressure on a stroke-shape map: a slow pressure field (scale of a letter or two)
+    makes strokes wider and darker where the pen was pressed and thinner and fainter where it
+    was light, the way a ballpoint line varies along a word. Width changes by re-thresholding
+    a blurred copy of the shape at a level that follows the field."""
+    from .realism import knobs as KN
+    w_amp, l_amp = float(KN.get("press_w", 0.0)), float(KN.get("press_l", 0.0))
+    if not (w_amp or l_amp) or not cov.any():
+        return cov
+    rng = np.random.default_rng(seed + 991)
+    cell = float(KN.get("press_cell", 70.0))          # px at the 600 dpi working scale
+    h, w = cov.shape
+    gh, gw = max(2, int(h / cell) + 2), max(2, int(w / cell) + 2)
+    f = cv2.resize(rng.standard_normal((gh, gw)).astype(np.float32), (w, h), interpolation=cv2.INTER_CUBIC)
+    f = np.clip(f / max(1e-6, float(f.std())), -2.5, 2.5)
+    out = cov
+    if w_amp:
+        b = cv2.GaussianBlur(cov, (0, 0), 2.0)
+        t = np.clip(0.42 + 0.16 * w_amp * f, 0.18, 0.72)
+        out = np.clip((b - t) / 0.18 + 0.5, 0, 1) * (cov > 0.02).astype(np.float32) + \
+              np.clip((b - t) / 0.18 + 0.5, 0, 1) * (cov <= 0.02) * (t < 0.42)
+    if l_amp:
+        out = out * np.clip(1 - 0.25 * l_amp * np.clip(-f, 0, None), 0.45, 1)
+    return out.astype(np.float32)
+
+
 def compose_realism(shape: np.ndarray, count: np.ndarray, pen, seed: int, paper: np.ndarray | None = None,
                     rgb=None, smudges: float = 0.0) -> np.ndarray:
     """Default ink model (realism.ink): the page's stroke shape at 600 dpi is re-inked with
@@ -301,6 +327,7 @@ def compose_realism(shape: np.ndarray, count: np.ndarray, pen, seed: int, paper:
         y0, y1 = max(0, ys.min() - 16), min(H, ys.max() + 17)
         x0, x1 = max(0, xs.min() - 16), min(W, xs.max() + 17)
         cov = shape[y0:y1, x0:x1]
+        cov = pressure(cov, seed)
         if smudges:
             from .layout import MM
             cov = smudge(cov.copy(), np.random.default_rng(seed + 7), smudges, MM * SS)

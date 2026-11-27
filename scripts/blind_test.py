@@ -84,12 +84,46 @@ def cnn_cv(X, y, groups, folds=5, epochs=20):
     return accs
 
 
+def resnet_cv(X, y, groups, folds=5, epochs=8):
+    """Stronger detector: an ImageNet ResNet-18 fine-tuned end to end on the windows, with
+    small random shifts and contrast changes as augmentation. Same grouped folds."""
+    import torch, torch.nn as nn, torchvision
+    from sklearn.model_selection import GroupKFold
+    accs = []
+    for tr, te in GroupKFold(folds).split(X, y, groups):
+        torch.manual_seed(0)
+        net = torchvision.models.resnet18(weights=torchvision.models.ResNet18_Weights.IMAGENET1K_V1)
+        net.fc = nn.Linear(net.fc.in_features, 2)
+        opt = torch.optim.AdamW(net.parameters(), 3e-4, weight_decay=1e-4)
+        Xt = torch.tensor(X[tr], dtype=torch.float32)[:, None] / 255
+        yt = torch.tensor(y[tr])
+        def prep(b):
+            return ((b - 0.5) / 0.25).repeat(1, 3, 1, 1)
+        net.train()
+        for _ in range(epochs):
+            perm = torch.randperm(len(Xt))
+            for i in range(0, len(Xt), 16):
+                b = perm[i:i + 16]
+                xb = Xt[b]
+                sh = int(torch.randint(-12, 13, (1,)))
+                xb = torch.roll(xb, sh, dims=3)
+                xb = (xb - 1) * float(torch.empty(1).uniform_(0.85, 1.15)) + 1
+                loss = nn.functional.cross_entropy(net(prep(xb)), yt[b])
+                opt.zero_grad(); loss.backward(); opt.step()
+        net.eval()
+        with torch.no_grad():
+            p = net(prep(torch.tensor(X[te], dtype=torch.float32)[:, None] / 255)).argmax(1).numpy()
+        accs.append(float((p == y[te]).mean()))
+    return accs
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--real"); ap.add_argument("--fake"); ap.add_argument("--out", default="blind")
     ap.add_argument("--sheet", type=int, default=24)
     ap.add_argument("--binarize", action="store_true",
                     help="threshold both sets and soften edges the same way, so only letter shapes differ")
+    ap.add_argument("--strong", action="store_true", help="also fine-tune an ImageNet ResNet-18 (slower, stronger)")
     ap.add_argument("--score", help="answers JSON {number: 'real'|'generated'} to score against the key")
     a = ap.parse_args()
     out = Path(a.out); out.mkdir(parents=True, exist_ok=True)
@@ -137,6 +171,9 @@ def main():
            "hog_lbp_logreg_acc": [float(np.mean(acc_lr)), float(np.std(acc_lr))],
            "small_cnn_acc": [float(np.mean(acc_cnn)), float(np.std(acc_cnn))],
            "chance": float(max(y.mean(), 1 - y.mean()))}
+    if a.strong:
+        acc_rn = resnet_cv(X, y, np.array(g))
+        res["resnet18_ft_acc"] = [float(np.mean(acc_rn)), float(np.std(acc_rn))]
     print(json.dumps(res, indent=1))
     (out / "classifier.json").write_text(json.dumps(res, indent=1))
     # reviewer sheet
