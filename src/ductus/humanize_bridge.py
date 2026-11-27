@@ -20,7 +20,12 @@ def humanize_page(pg, words, L, rate: float, seed: int) -> None:
     if rate <= 0 or not pg.words:
         return
     # group placements into lines by baseline
-    order = sorted(range(len(pg.words)), key=lambda i: (pg.words[i].base, pg.words[i].x))
+    # a retraced word is a second placement on top of its word: it moves with it, and must not
+    # be laid out as a word of its own (that pushed it a word gap to the right: "like like")
+    before = {i: (p.x, p.base, p.scale, p.angle) for i, p in enumerate(pg.words)}
+    copies = [i for i, p in enumerate(pg.words) if getattr(p, "of", None) is not None]
+    order = sorted((i for i in range(len(pg.words)) if i not in set(copies)),
+                   key=lambda i: (pg.words[i].base, pg.words[i].x))
     lines, cur, last = [], [], None
     for i in order:
         p = pg.words[i]
@@ -64,4 +69,12 @@ def humanize_page(pg, words, L, rate: float, seed: int) -> None:
                 n = max(1, len(w.text))
                 new.append(Placed(p.idx, p.x + d[0], p.base + d[1], p.scale, p.angle, p.ink * 0.9, p.sx,
                                   clip=(ci / n, (ci + 1) / n)))
+    for i in copies:
+        c, o = pg.words[i], pg.words[i].of
+        x0, b0, s0, a0 = before[o]
+        q = pg.words[o]
+        c.x += q.x - x0
+        c.base += q.base - b0
+        c.scale *= q.scale / max(s0, 1e-9)
+        c.angle += q.angle - a0
     pg.words.extend(new)

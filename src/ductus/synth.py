@@ -85,6 +85,7 @@ class WordImage:
     xheight: float
     score: float = 1.0       # 1 - CER of the OCR read-back (1.0 when unchecked)
     read: str = ""
+    template: bool = False   # drawn from printglyphs (numbers, symbols, capitals), not a model
 
 
 _DEBUG = bool(__import__("os").environ.get("DUCTUS_DEBUG"))
@@ -109,6 +110,8 @@ class Synthesizer:
     letter_profile: dict | None = None  # per-letter loop rates of the writer (letters.json)
     plain: str = "abcdefghijklmnopqrstuvwxyz"   # letters that must use the plain form (no closed loops); "" = off
     stats: dict = field(default_factory=dict)
+    templates: bool = False        # numbers, symbols and capital-only tokens drawn from printglyphs
+    mess: float = 0.3
 
     def _carriers(self, words: list[tuple[int, str]], rng: random.Random):
         """Greedy pack (id, text) pairs into carrier strings of exactly CARRIER_LEN chars."""
@@ -160,6 +163,16 @@ class Synthesizer:
         self.stats = {}
         best: dict[int, WordImage] = {}
         pending = list(enumerate(texts))
+        if self.templates:
+            from . import printglyphs as PG
+            nrng = np.random.default_rng(self.seed + 7)
+            for wid, w in pending:
+                if PG.handles(w):
+                    a, bl, xh = PG.render(w, nrng, mess=self.mess)
+                    best[wid] = WordImage(w, a, bl, xh, 1.0, w, template=True)
+            pending = [(wid, w) for wid, w in pending if wid not in best]
+            if best:
+                self.log(f"templates: {len(best)} number, symbol and capital tokens drawn")
         seed = self.seed
         gen_lines = 0
         for rnd in range(self.rounds):
@@ -283,6 +296,7 @@ class Synthesizer:
             pending = [(wid, w) for wid, w in pending
                        if wid not in best or (1.0 - best[wid].score) > self.max_cer]
         self.stats = {"flourish_rejects": self.stats.get("flourish_rejects", 0), "lines_generated": gen_lines, "words": len(texts),
+                      "template_words": sum(1 for v in best.values() if v.template),
                       "still_failing": len(pending), "rounds_used": rnd + 1}
         missing = [wid for wid, _ in enumerate(texts) if wid not in best]
         if missing:

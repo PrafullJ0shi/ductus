@@ -65,6 +65,7 @@ class Placed:
     ink: float = 1.0    # density factor
     sx: float = 1.0     # horizontal squeeze (cramped word at a line end)
     clip: tuple | None = None   # draw only this horizontal fraction of the word (a retouched letter)
+    of: int | None = None       # a second pass over another placement (index in Page.words)
 
 
 @dataclass
@@ -91,7 +92,7 @@ class WordBox(Box):
         # some generator lines come out condensed or stretched: pull letter width partway
         # back to the page median so no word looks bolder or lighter than its neighbours
         self.wfix = 1.0
-        if len(w.text) >= 3 and L.median_wpc:
+        if len(w.text) >= 3 and L.median_wpc and not getattr(w, "template", False):
             wpc = w.alpha.shape[1] / (len(w.text) * max(w.xheight, 4.0))
             self.wfix = float(np.clip((L.median_wpc / max(wpc, 1e-3)) ** 0.6, 0.85, 1.25))
         self.width = w.alpha.shape[1] * L.s * k * self.jit * self.wfix
@@ -104,14 +105,19 @@ class WordBox(Box):
         w = L.words[self.idx]
         s = L.s * self.k * self.jit
         # model baseline -> page baseline
-        dy = L.rng.normal(0, L.xh * (0.03 + 0.07 * L.look.mess))
+        # the baseline wanders slowly along a line (words drift a little up or down together)
+        # and pen pressure changes slowly too; both are small so the page stays readable
+        L.base_walk = 0.7 * getattr(L, "base_walk", 0.0) + L.rng.normal(0, L.xh * (0.02 + 0.04 * L.look.mess))
+        L.ink_walk = 0.8 * getattr(L, "ink_walk", 0.0) + L.rng.normal(0, 0.02 + 0.12 * L.look.pressure)
+        dy = L.base_walk + L.rng.normal(0, L.xh * (0.025 + 0.05 * L.look.mess))
         ang = L.line_angle + L.rng.normal(0, 0.4 + 1.2 * L.look.mess)
-        ink = (1 + L.rng.normal(0, L.look.pressure * 0.5)) * L.session_ink
+        ink = (1 + L.ink_walk + L.rng.normal(0, L.look.pressure * 0.4)) * L.session_ink
         L.page.words.append(Placed(self.idx, x, base + dy, s, ang, ink, self.sx * self.wfix))
         if L.rng.random() < L.look.retrace:
             # part of the word gone over again: a second, slightly offset pass
             L.page.words.append(Placed(self.idx, x + L.rng.normal(0, 0.6), base + dy + L.rng.normal(0, 0.6), s,
-                                       ang + L.rng.normal(0, 0.3), ink * 0.8, self.sx * self.wfix))
+                                       ang + L.rng.normal(0, 0.3), ink * 0.8, self.sx * self.wfix,
+                                       of=len(L.page.words) - 1))
         if L.rng.random() < L.look.hesitation:
             # pen rested before starting the word
             cx, cy = x - L.xh * 0.15, base + dy - L.xh * L.rng.uniform(0.3, 0.8)
@@ -205,7 +211,7 @@ class Layouter:
         self.xh = look.xh_mm * MM
         model_xh = float(np.median([w.xheight for w in words])) if words else 20.0
         self.model_xh = max(model_xh, 4.0)
-        wpcs = [w.alpha.shape[1] / (len(w.text) * max(w.xheight, 4.0)) for w in words if len(w.text) >= 3]
+        wpcs = [w.alpha.shape[1] / (len(w.text) * max(w.xheight, 4.0)) for w in words if len(w.text) >= 3 and not getattr(w, "template", False)]
         self.median_wpc = float(np.median(wpcs)) if wpcs else None
         self.s = self.xh / self.model_xh
         self.size_walk = 0.0
@@ -281,6 +287,7 @@ class Layouter:
         m = self.look.mess
         self.line_angle = -(self.look.slope_deg + self.slope_offset + self.rng.normal(0, 0.25 + 0.6 * m))  # degrees, ccw positive
         self.margin_walk = 0.85 * self.margin_walk + self.rng.normal(0, 3 + 10 * m)
+        self.base_walk = 0.0
 
     def flow(self, boxes, indent=0.0, hang=0.0, first_x=None):
         """Lay boxes left to right, wrapping at the right margin. Returns (x_end, y)."""

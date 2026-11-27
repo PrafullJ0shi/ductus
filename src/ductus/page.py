@@ -203,7 +203,7 @@ class Writer:
             prim, fb, pr = self.engines(o)
             syn = Synthesizer(prim, ref, self.reader if o.verify else None, fallback=fb, primary_rounds=pr, fallback_all=o.engine == "auto", max_cer=max_cer,
                               loose=personal, seed=o.seed * 1000 + ci * 37, log=o.log,
-                              strict=strict, rounds=(pr + 2) if fb is not None and pr < 99 else (5 if o.look == "neat" else 4), plain=_plain_letters(o), letter_profile=_letters(o.style))
+                              strict=strict, rounds=(pr + 2) if fb is not None and pr < 99 else (5 if o.look == "neat" else 4), plain=_plain_letters(o), letter_profile=_letters(o.style), templates=o.glyphs != "off", mess=look.mess)
             words += syn.run([texts[i] for i in idx])
             for k in stats:
                 stats[k] += syn.stats.get(k, 0)
@@ -323,7 +323,7 @@ def write_lines(writer: "Writer", lines: list[str], o: Options) -> tuple[list[np
     prim, fb, pr = writer.engines(o)
     syn = Synthesizer(prim, refs[0], writer.reader if o.verify else None, fallback=fb, primary_rounds=pr, fallback_all=o.engine == "auto", max_cer=max_cer,
                       loose=bool(prof), seed=o.seed, log=o.log,
-                      strict=o.legibility != "loose", rounds=(pr + 2) if fb is not None and pr < 99 else (5 if o.look == "neat" else 4), plain=_plain_letters(o), letter_profile=_letters(o.style))
+                      strict=o.legibility != "loose", rounds=(pr + 2) if fb is not None and pr < 99 else (5 if o.look == "neat" else 4), plain=_plain_letters(o), letter_profile=_letters(o.style), templates=o.glyphs != "off", mess=look.mess)
     ckey = _cache_key(["lines"] + flat, o, max_cer, o.steps)
     cached = _cache_get(ckey) if o.cache else None
     if cached is not None:
@@ -362,7 +362,7 @@ def write_lines(writer: "Writer", lines: list[str], o: Options) -> tuple[list[np
     return out, stats
 
 
-CACHE_VERSION = 27  # bump when word synthesis changes
+CACHE_VERSION = 28  # bump when word synthesis changes
 
 
 def _cache_dir():

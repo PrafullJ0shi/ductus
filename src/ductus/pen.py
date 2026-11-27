@@ -118,10 +118,11 @@ class Marks:
     def eq(self, x, base):
         xh, r = self.xh, self.r
         w = xh * (0.9 + 0.25 * r.random())
-        y1 = base - xh * (0.62 + 0.05 * r.normal())
-        y2 = base - xh * (0.22 + 0.05 * r.normal())
-        return [self.line((x, y1), (x + w, y1 + r.normal(0, xh * 0.04))),
-                self.line((x + r.normal(0, xh * 0.05), y2), (x + w * self.j(), y2 + r.normal(0, xh * 0.04)))], w
+        y1 = base - xh * (0.68 + 0.04 * r.normal())
+        y2 = base - xh * (0.24 + 0.04 * r.normal())
+        amp = xh * 0.012          # two straight bars: a wavy pair reads as "approximately"
+        return [self.line((x, y1), (x + w, y1 + r.normal(0, xh * 0.03)), amp=amp),
+                self.line((x + r.normal(0, xh * 0.04), y2), (x + w * self.j(), y2 + r.normal(0, xh * 0.03)), amp=amp)], w
 
     def lt(self, x, base, flip=False):
         xh = self.xh
