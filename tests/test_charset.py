@@ -24,3 +24,11 @@ def test_personal_table_is_used():
     a, bl, xh = PG.render("7", rng, table=tab)
     b, _, _ = PG.render("7", np.random.default_rng(0))
     assert a.shape != b.shape or not np.allclose(a, b)
+
+
+def test_l_t_swap_is_rejected():
+    from ductus.verify import confused
+    assert confused("population", "poputation")
+    assert confused("small", "smalt")
+    assert not confused("little", "little")
+    assert not confused("help", "hep")

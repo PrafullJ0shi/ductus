@@ -51,6 +51,22 @@ def cer_wild(ref: str, hyp: str, wild: str = "") -> float:
     return prev[-1] / max(1, len(ref))
 
 
+CONFUSABLE = {("l", "t"), ("t", "l")}   # an l drawn with a crossbar reads, and looks, like a t
+
+
+def confused(ref: str, hyp: str, pairs=CONFUSABLE) -> bool:
+    """True when the read swaps a letter for its look-alike (Population read as Poputation,
+    small as smalt). One such swap is a small CER but a visible misspelling, so the word
+    must be rewritten whatever the threshold."""
+    import difflib
+    sm = difflib.SequenceMatcher(None, ref, hyp, autojunk=False)
+    for op, i1, i2, j1, j2 in sm.get_opcodes():
+        if op == "replace" and i2 - i1 == j2 - j1:
+            if any((a, b) in pairs for a, b in zip(ref[i1:i2], hyp[j1:j2])):
+                return True
+    return False
+
+
 def normalise(s: str) -> str:
     """Case and punctuation insensitive form used for scoring the generator, not the OCR."""
     import re
