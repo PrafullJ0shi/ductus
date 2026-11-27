@@ -62,6 +62,8 @@ T: dict[str, list] = {
           ("c", [(0.04, -0.88), (0.74, -0.88)]), ("c", [(0.00, -0.42), (0.70, -0.42)])],
     "*": [("c", [(0.30, -1.30), (0.30, -0.62)]), ("c", [(0.04, -1.12), (0.56, -0.80)]),
           ("c", [(0.56, -1.12), (0.04, -0.80)])],
+    "&": [("s", [(0.70, -0.04), (0.22, -0.76), (0.12, -1.12), (0.30, -1.40), (0.50, -1.22), (0.40, -0.92),
+                 (0.06, -0.46), (0.10, -0.08), (0.36, 0.0), (0.60, -0.28), (0.70, -0.50)])],
     "'": [("c", [(0.06, -1.46), (0.04, -1.12)])],
     '"': [("c", [(0.06, -1.46), (0.04, -1.12)]), ("c", [(0.24, -1.46), (0.22, -1.12)])],
     # capitals, plain print
@@ -106,7 +108,7 @@ T: dict[str, list] = {
           ("s", [(0.0, -0.66), (0.18, -0.94), (0.42, -1.0), (0.58, -0.82), (0.60, -0.40), (0.60, 0.0)])],
 }
 CHARS = set(T)
-_TOKEN = re.compile(r"^[0-9A-Z.,:;()\-+=/%!?#*'\"xn]+$")
+_TOKEN = re.compile(r"^[0-9A-Z.,:;()\-+=/%!?#*&'\"xn]+$")
 
 
 def handles(word: str) -> bool:
@@ -120,7 +122,7 @@ def handles(word: str) -> bool:
         return False
     if word in ("A", "I"):
         return False            # pronoun and article: the writer's own hand reads fine there
-    return any(c.isalnum() for c in word) or word in ("=", "+", "-", "/", "%", "?", "!", "#", "*")
+    return any(c.isalnum() for c in word) or len(word) == 1
 
 
 def _corners(t: np.ndarray, per: int = 10) -> np.ndarray:

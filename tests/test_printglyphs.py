@@ -4,9 +4,9 @@ from ductus import printglyphs as P
 
 
 def test_handles_numbers_symbols_and_acronyms():
-    for w in ["4)", "1.41", "30/5", "-2", "Q3.", "S.D.", "BTC", "HTML", "2026", "x", "(x", "6)", "="]:
+    for w in ["4)", "1.41", "30/5", "-2", "Q3.", "S.D.", "BTC", "HTML", "2026", "x", "(x", "6)", "=", "(", ";", "&"]:
         assert P.handles(w), w
-    for w in ["Data:", "mean", "Find", "I", "A", "x-ray", "nx", "", "?!"]:
+    for w in ["Data:", "mean", "Find", "I", "A", "x-ray", "nx", "", "?!", "and"]:
         assert not P.handles(w), w
 
 
