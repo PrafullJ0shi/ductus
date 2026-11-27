@@ -434,7 +434,7 @@ def _personal_templates(words, o, look):
     return out
 
 
-CACHE_VERSION = 31  # bump when word synthesis changes
+CACHE_VERSION = 32  # bump when word synthesis changes
 
 
 def _cache_dir():
