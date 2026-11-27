@@ -196,7 +196,7 @@ class Synthesizer:
                 self.log(f"word bank: {len(banked)} words taken")
         seed = self.seed
         gen_lines = 0
-        best_of = int(__import__("os").environ.get("DUCTUS_BEST_OF", "1"))
+        best_of = int(__import__("os").environ.get("DUCTUS_BEST_OF", "3"))   # candidates per stubborn word in the solo rounds
         skip_until = 0
         for rnd in range(self.rounds):
             if not pending:
