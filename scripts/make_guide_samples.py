@@ -19,7 +19,6 @@ ROOT = Path(__file__).resolve().parents[1]
 OUT = ROOT / "out" / "guide"
 FIG = ROOT / "docs" / "assets" / "guide"
 LINE = "The quick brown fox jumps over the lazy dog."
-MONO = "/usr/share/fonts/truetype/sand-box/google/IBM Plex Mono/IBMPlexMono-Regular.ttf"
 INK, MUTED, RULE = (29, 31, 36), (92, 97, 112), (217, 214, 206)
 
 
@@ -49,10 +48,13 @@ def render():
 
 
 def font(size):
+    """IBM Plex Mono for the captions (found with fc-match), else Pillow's default font."""
+    import subprocess
     try:
-        return ImageFont.truetype(MONO, size)
-    except OSError:
-        return ImageFont.load_default()
+        path = subprocess.run(["fc-match", "-f", "%{file}", "IBM Plex Mono"], capture_output=True, text=True).stdout
+        return ImageFont.truetype(path, size)
+    except (OSError, FileNotFoundError):
+        return ImageFont.load_default(size)
 
 
 def ink_box(img: Image.Image, pad=40):
