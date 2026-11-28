@@ -1,0 +1,5 @@
+# Ink and paper
+
+Ductus :: the way a hand moves to form letters
+Bank -> words that already passed the read-back [v]
+1) write  2) read back  3) rewrite what fails
