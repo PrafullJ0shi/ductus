@@ -69,9 +69,10 @@ The table follows `src/ductus/cli.py`. If you change one, change the other.
 | `--engine` | `default` | `default`: RNN letters when installed, else diffusion, with diffusion as fallback; `rnn`: same, but stops if the RNN is missing; `diffusion`: letter shapes copied from `--style`; `auto`: diffusion first, RNN for words that do not read |
 | `--rnn-style N` | `1` | built-in RNN writer style 0 to 7 (style 1 writes plain print letters) |
 | `--rnn-bias B` | `1.5` | RNN neatness; higher is neater |
+| `--glyphs` | `cursive` | `r` and `f`: `cursive` (school-cursive `r`, looped `f`), `print` (plain print) or `off` (as the RNN writes them); see [GUIDE.md](GUIDE.md#8-letter-shapes) |
 | `--legibility` | `strict` | `strict`: every word must pass both the line and the word OCR read-back, or it is written again; `loose`: only catch wrong or missing words |
 | `--allow-loops` | off | keep looped `f`, stylish `r` and looped ascenders; by default such words are written again until the plain form appears (`letterforms.py`) |
-| `--max-cer X` | `0.15` | OCR acceptance threshold (character error rate); with `--legibility loose` and a profile, the profile's value (0.5 by default) |
+| `--max-cer X` | `0.10` | OCR acceptance threshold (character error rate); `0.15` with `--look neat`; with `--legibility loose` and a profile, the profile's value (0.5 by default) |
 | `--no-verify` | off | skip the OCR read-back (faster, more mistakes) |
 | `--ocr` | `cascade` | read-back model: `cascade` reads with trocr-small first and has trocr-base re-read only what it rejects; `base` is the old single model (slower); `small` skips the re-read |
 | `--fast` | off | draft speed: `--ocr small`, 4 rewrite rounds instead of 8, no diffusion fallback. A few more rough words |
@@ -148,6 +149,19 @@ ductus style photo1.jpg photo2.jpg ... -o styles/my-hand [--name my-hand]
 Writes `styles/my-hand/profile.json`, reference line crops in `refs/` and cleaned page ink maps
 in `debug/`. Use the folder as `--style styles/my-hand --look profile`. See
 [STYLE_GUIDE.md](STYLE_GUIDE.md) and [HABITS.md](HABITS.md).
+
+## `ductus charset`
+
+```
+ductus charset charset.jpg --style styles/my-hand
+```
+
+| Option | Default | Meaning |
+|---|---|---|
+| `photo` | required | one photo of a character sheet, rows: `a-n` / `o-z` / `A-P` / `Q-Z` / `0-9` / `= + - x ÷` / `( ) % . , : ; ? ! √ / ² " '` |
+| `--style` | required | profile folder (from `ductus style`) to save `glyphs.json` into |
+
+The traced shapes are used for template capitals, digits and symbols.
 
 ## `ductus presets`
 

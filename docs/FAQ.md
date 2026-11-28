@@ -61,7 +61,8 @@ without writing the words again. `--steps` only affects the diffusion writer.
 
 **Why does a word sometimes still look wrong?**
 A word is accepted when OCR reads it closely enough. If it still fails after the last round
-(6 rounds by default: 4 with the RNN and 2 with diffusion), the best attempt is used and counted
+(up to 10 rounds by default: 8 with the RNN and 2 with diffusion; 4 RNN rounds with
+`--glyphs print` or `off`, and with `--fast`, which also skips diffusion), the best attempt is used and counted
 in `still_failing` in the printed statistics. Try another `--seed`, `--look neat`, or a simpler
 word. The OCR judge also misreads drawn marks, so a correct page can score badly.
 
