@@ -31,4 +31,4 @@ Six pens and three tip sizes, inked at 600 dpi with a physical ink model. See
 - [Realism checklist](REALISM.md), [pens](PENS.md), [ink model](INK.md), [writer profile and habits](HABITS.md)
 - [Benchmark](BENCHMARK.md), [evaluation](EVALUATION.md) and [comparison with other tools](COMPARISON.md)
 - [Research survey](RESEARCH.md)
-- [Command line](CLI.md), [style guide](STYLE_GUIDE.md), [FAQ](FAQ.md)
+- [Full guide](GUIDE.md), [command line](CLI.md), [style guide](STYLE_GUIDE.md), [FAQ](FAQ.md)

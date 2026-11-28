@@ -46,6 +46,25 @@ Version 1.0.0. Small tests, honest numbers. What is true today:
   tools in that benchmark do not have.
 - The tests are small: 7 lines, one sample each. Treat the numbers as indications.
 
+## Guide
+
+The [full guide](docs/GUIDE.md) explains every mode and option with the command, what it
+changes, when to use it and a sample image:
+[how it works](docs/GUIDE.md#1-how-it-works) ·
+[modes](docs/GUIDE.md#4-content-modes) ·
+[engines](docs/GUIDE.md#5-engines) ·
+[read-back](docs/GUIDE.md#6-read-back) ·
+[speed and word bank](docs/GUIDE.md#7-speed) ·
+[letter shapes](docs/GUIDE.md#8-letter-shapes) ·
+[styles and looks](docs/GUIDE.md#9-styles-and-looks) ·
+[pens and paper](docs/GUIDE.md#10-pens-ink-and-paper) ·
+[borders](docs/GUIDE.md#11-borders-and-margin-lines) ·
+[phone photo](docs/GUIDE.md#12-phone-photo) ·
+[your own hand](docs/GUIDE.md#13-your-own-hand) ·
+[GPU](docs/GUIDE.md#15-gpu-threads-and-environment-variables) ·
+[Python API](docs/GUIDE.md#16-python-api) ·
+[troubleshooting](docs/GUIDE.md#18-troubleshooting).
+
 ## Install
 
 ```bash
@@ -153,6 +172,11 @@ markup (`Term :: meaning`, `{a/b}`, `[v]` and more) is in [docs/CLI.md#markup](d
 | `--style` | **`upright`**, `slant`, `quick`, `round`, `loose`, a line image, a profile folder | reference for size, spacing and (with the diffusion writer) letter shapes |
 | `--engine` | **`default`**, `rnn`, `diffusion`, `auto` | which writer; `default` is RNN letters with diffusion as fallback |
 | `--legibility` | **`strict`**, `loose` | `strict`: every word must pass the line and the word OCR read-back |
+| `--ocr` | **`cascade`**, `base`, `small` | read-back model; `cascade` has trocr-base re-read only what trocr-small rejects |
+| `--fast` | off | draft speed: `--ocr small`, 4 rewrite rounds, no diffusion fallback |
+| `--budget` | seconds | no new rewrite round starts after this time |
+| `--no-bank` | off | do not reuse or save verified words (the word bank is on by default in the CLI) |
+| `--glyphs` | **`cursive`**, `print`, `off` | how `r` and `f` are drawn |
 | `--allow-loops` | off | keep looped `f`, stylish `r` and looped ascenders (otherwise they are rewritten plainly) |
 | `--pen` | **`blue-ballpoint`**, `black-ballpoint`, `blue-gel`, `black-gel`, `fountain`, `pencil` | colour, texture and line width; see [docs/PENS.md](docs/PENS.md) |
 | `--tip` | `0.5`, `0.7`, `1.0` (mm) | nominal tip size, which sets the line width |
@@ -161,6 +185,7 @@ markup (`Term :: meaning`, `{a/b}`, `[v]` and more) is in [docs/CLI.md#markup](d
 | `--ink-model` | **`realism`**, `pens`, `flat` | how ink is drawn; see [docs/INK.md](docs/INK.md) |
 | `--paper` | **`white`**, `ruled`, `grid` | grid is the default with `--photo notebook` |
 | `--photo` | `a4`, `notebook` | phone photo of the page; `--photo` alone means `a4` |
+| `--border` | **`none`**, `box`, `box-margin`, `margin` | hand-ruled box and/or margin line; `--border-inset`, `--border-header` adjust it |
 | `--humanize` | `0` to `1`, **`0.5`** | rate of the human-error pass; ignored for `--look neat` |
 | `--corrections` | rate | share of words written wrong, struck out and rewritten |
 | `--size` | mm, **`2.8`** | x-height of the writing |
@@ -191,7 +216,9 @@ More in [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md), [docs/METHOD.md](docs/METH
 
 The default hand is plain, print-like writing. A letter-shape check rewrites words whose `f`,
 `r` or ascenders come out looped or calligraphic, and every word must pass the OCR read-back.
-Messiness stays in spacing, baseline, slant and size rather than in the letters.
+Messiness stays in spacing, baseline, slant and size rather than in the letters. `r` and `f`
+are drawn in a school-cursive form by default; `--glyphs print` gives plain print forms
+([guide](docs/GUIDE.md#8-letter-shapes)).
 
 ![Before and after the plain-letter check](docs/assets/letterforms-before-after.png)
 
@@ -287,6 +314,7 @@ What this says, without spin:
 
 | Page | Content |
 |---|---|
+| [docs/GUIDE.md](docs/GUIDE.md) | full guide: every mode and option, with commands and samples |
 | [docs/CLI.md](docs/CLI.md) | every option, markup and the Python API |
 | [docs/PAGES.md](docs/PAGES.md) | hand-ruled page borders and margin lines |
 | [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) | modules, writers and data flow |
