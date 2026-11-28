@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>How one word is checked</title>
+<link href="https://fonts.googleapis.com/css2?family=Newsreader:opsz,wght@6..72,400;6..72,600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+body{font-family:Newsreader,Georgia,serif;background:#FBFAF7;color:#1D1F24;min-height:100vh;display:flex;align-items:center;justify-content:center;padding:3rem 2rem}
+.frame{max-width:1200px;width:100%}
+.diagram-container{width:100%;overflow-x:auto}
+.eyebrow{font-family:'IBM Plex Mono',monospace;font-size:.66rem;letter-spacing:.18em;text-transform:uppercase;color:#5C6170;margin-bottom:.5rem}
+h1{font-weight:400;font-size:2rem;letter-spacing:-.01em;margin-bottom:1.5rem}
+svg{width:100%;min-width:960px;display:block}
+@media print{.diagram-container{overflow-x:visible}svg{min-width:0}}
+</style></head><body><div class="frame">
+<p class="eyebrow">Read-back · ductus</p><h1>How one word is checked</h1>
+<div class="diagram-container">
+<svg viewBox="0 0 960 624" xmlns="http://www.w3.org/2000/svg" role="img" aria-labelledby="readback-title readback-desc">
+<title id="readback-title">ductus read-back cascade</title>
+<desc id="readback-desc">Each new word is read by trocr-small; words it rejects are re-read by trocr-base; words both reject are written again in a new carrier line, and accepted words go on the page and into the word bank.</desc>
+<defs>
+<marker id="a" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto"><polygon points="0 0, 8 3, 0 6" fill="#5C6170"/></marker>
+<marker id="aa" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto"><polygon points="0 0, 8 3, 0 6" fill="#1C2A6E"/></marker>
+</defs>
+<rect width="960" height="624" fill="#FBFAF7"/>
+<path d="M216 320 H246" fill="none" stroke="#5C6170" stroke-width="1.2" marker-end="url(#a)"/>
+<path d="M424 320 H518" fill="none" stroke="#1C2A6E" stroke-width="1.4" marker-end="url(#aa)"/>
+<path d="M336 286 V164 Q336 156 344 156 H742" fill="none" stroke="#5C6170" stroke-width="1.2" marker-end="url(#a)"/>
+<path d="M216 132 H742" fill="none" stroke="#5C6170" stroke-width="1.2" stroke-dasharray="5,4" marker-end="url(#a)"/>
+<path d="M696 320 H824 Q832 320 832 312 V178" fill="none" stroke="#1C2A6E" stroke-width="1.4" marker-end="url(#aa)"/>
+<path d="M608 352 V462" fill="none" stroke="#5C6170" stroke-width="1.2" marker-end="url(#a)"/>
+<path d="M518 496 H136 Q128 496 128 488 V354" fill="none" stroke="#5C6170" stroke-width="1.2" stroke-dasharray="5,4" marker-end="url(#a)"/>
+<path d="M832 110 V88 Q832 80 824 80 H136 Q128 80 128 88 V110" fill="none" stroke="#5C6170" stroke-width="1.2" stroke-dasharray="5,4" marker-end="url(#a)"/>
+<rect x="447.5" y="74" width="45" height="12" rx="2" fill="#FBFAF7"/><text x="470.0" y="83" fill="#6F7482" font-size="8" font-family="'IBM Plex Mono', monospace" text-anchor="middle" letter-spacing="0.06em">SAVED</text>
+<rect x="444.0" y="126" width="52" height="12" rx="2" fill="#FBFAF7"/><text x="470.0" y="135" fill="#6F7482" font-size="8" font-family="'IBM Plex Mono', monospace" text-anchor="middle" letter-spacing="0.06em">BANKED</text>
+<rect x="537.5" y="150" width="45" height="12" rx="2" fill="#FBFAF7"/><text x="560.0" y="159" fill="#6F7482" font-size="8" font-family="'IBM Plex Mono', monospace" text-anchor="middle" letter-spacing="0.06em">READS</text>
+<rect x="439.0" y="296" width="66" height="12" rx="2" fill="#FBFAF7"/><text x="472.0" y="305" fill="#6F7482" font-size="8" font-family="'IBM Plex Mono', monospace" text-anchor="middle" letter-spacing="0.06em">REJECTED</text>
+<rect x="741.5" y="296" width="45" height="12" rx="2" fill="#FBFAF7"/><text x="764.0" y="305" fill="#6F7482" font-size="8" font-family="'IBM Plex Mono', monospace" text-anchor="middle" letter-spacing="0.06em">READS</text>
+<rect x="616" y="400" width="66" height="12" rx="2" fill="#FBFAF7"/><text x="649.0" y="409" fill="#6F7482" font-size="8" font-family="'IBM Plex Mono', monospace" text-anchor="middle" letter-spacing="0.06em">REJECTED</text>
+<rect x="266.5" y="490" width="87" height="12" rx="2" fill="#FBFAF7"/><text x="310.0" y="499" fill="#6F7482" font-size="8" font-family="'IBM Plex Mono', monospace" text-anchor="middle" letter-spacing="0.06em">NEW CARRIER</text>
+<g id="n-bank">
+<rect x="40" y="112" width="176" height="64" rx="6" fill="#FBFAF7"/>
+<rect x="40" y="112" width="176" height="64" rx="6" fill="#FFFFFF" stroke="#5C6170" stroke-width="1" stroke-dasharray="4,3"/>
+<rect x="48" y="120" width="20" height="12" rx="2" fill="none" stroke="#5C6170" stroke-opacity="0.45" stroke-width="0.8"/>
+<text x="58.0" y="129" fill="#5C6170" font-size="7" font-family="'IBM Plex Mono', monospace" text-anchor="middle" letter-spacing="0.08em">IN</text>
+<text x="128.0" y="150" fill="#1D1F24" font-size="15" font-weight="600" font-family="Newsreader, Georgia, serif" text-anchor="middle" style="font-variant-ligatures:none">Word bank</text>
+<text x="128.0" y="166" fill="#5C6170" font-size="9.5" font-family="'IBM Plex Mono', monospace" text-anchor="middle">verified in earlier runs</text>
+</g>
+<g id="n-ok">
+<rect x="744" y="112" width="176" height="64" rx="6" fill="#FBFAF7"/>
+<rect x="744" y="112" width="176" height="64" rx="6" fill="#FFFFFF" stroke="#5C6170" stroke-width="1"/>
+<rect x="752" y="120" width="26" height="12" rx="2" fill="none" stroke="#5C6170" stroke-opacity="0.45" stroke-width="0.8"/>
+<text x="765.0" y="129" fill="#5C6170" font-size="7" font-family="'IBM Plex Mono', monospace" text-anchor="middle" letter-spacing="0.08em">OUT</text>
+<text x="832.0" y="150" fill="#1D1F24" font-size="15" font-weight="600" font-family="Newsreader, Georgia, serif" text-anchor="middle" style="font-variant-ligatures:none">Accepted word</text>
+<text x="832.0" y="166" fill="#5C6170" font-size="9.5" font-family="'IBM Plex Mono', monospace" text-anchor="middle">goes on the page</text>
+</g>
+<g id="n-word">
+<rect x="40" y="288" width="176" height="64" rx="6" fill="#FBFAF7"/>
+<rect x="40" y="288" width="176" height="64" rx="6" fill="#FFFFFF" stroke="#5C6170" stroke-width="1"/>
+<rect x="48" y="296" width="20" height="12" rx="2" fill="none" stroke="#5C6170" stroke-opacity="0.45" stroke-width="0.8"/>
+<text x="58.0" y="305" fill="#5C6170" font-size="7" font-family="'IBM Plex Mono', monospace" text-anchor="middle" letter-spacing="0.08em">IN</text>
+<text x="128.0" y="326" fill="#1D1F24" font-size="15" font-weight="600" font-family="Newsreader, Georgia, serif" text-anchor="middle" style="font-variant-ligatures:none">New word</text>
+<text x="128.0" y="342" fill="#5C6170" font-size="9.5" font-family="'IBM Plex Mono', monospace" text-anchor="middle">cut from an RNN line</text>
+</g>
+<g id="n-small">
+<rect x="248" y="288" width="176" height="64" rx="6" fill="#FBFAF7"/>
+<rect x="248" y="288" width="176" height="64" rx="6" fill="#FFFFFF" stroke="#5C6170" stroke-width="1"/>
+<rect x="256" y="296" width="38" height="12" rx="2" fill="none" stroke="#5C6170" stroke-opacity="0.45" stroke-width="0.8"/>
+<text x="275.0" y="305" fill="#5C6170" font-size="7" font-family="'IBM Plex Mono', monospace" text-anchor="middle" letter-spacing="0.08em">CHECK</text>
+<text x="336.0" y="326" fill="#1D1F24" font-size="15" font-weight="600" font-family="Newsreader, Georgia, serif" text-anchor="middle" style="font-variant-ligatures:none">trocr-small</text>
+<text x="336.0" y="342" fill="#5C6170" font-size="9.5" font-family="'IBM Plex Mono', monospace" text-anchor="middle">reads every word</text>
+</g>
+<g id="n-base">
+<rect x="520" y="288" width="176" height="64" rx="6" fill="#FBFAF7"/>
+<rect x="520" y="288" width="176" height="64" rx="6" fill="rgba(28,42,110,0.06)" stroke="#1C2A6E" stroke-width="1.4"/>
+<rect x="528" y="296" width="38" height="12" rx="2" fill="none" stroke="#1C2A6E" stroke-opacity="0.45" stroke-width="0.8"/>
+<text x="547.0" y="305" fill="#1C2A6E" font-size="7" font-family="'IBM Plex Mono', monospace" text-anchor="middle" letter-spacing="0.08em">CHECK</text>
+<text x="608.0" y="326" fill="#1D1F24" font-size="15" font-weight="600" font-family="Newsreader, Georgia, serif" text-anchor="middle" style="font-variant-ligatures:none">trocr-base</text>
+<text x="608.0" y="342" fill="#5C6170" font-size="9.5" font-family="'IBM Plex Mono', monospace" text-anchor="middle">re-reads the rejects</text>
+</g>
+<g id="n-redo">
+<rect x="520" y="464" width="176" height="64" rx="6" fill="#FBFAF7"/>
+<rect x="520" y="464" width="176" height="64" rx="6" fill="#FFFFFF" stroke="#5C6170" stroke-width="1"/>
+<rect x="528" y="472" width="38" height="12" rx="2" fill="none" stroke="#5C6170" stroke-opacity="0.45" stroke-width="0.8"/>
+<text x="547.0" y="481" fill="#5C6170" font-size="7" font-family="'IBM Plex Mono', monospace" text-anchor="middle" letter-spacing="0.08em">MODEL</text>
+<text x="608.0" y="502" fill="#1D1F24" font-size="15" font-weight="600" font-family="Newsreader, Georgia, serif" text-anchor="middle" style="font-variant-ligatures:none">Rewrite round</text>
+<text x="608.0" y="518" fill="#5C6170" font-size="9.5" font-family="'IBM Plex Mono', monospace" text-anchor="middle">new carrier, best of 3</text>
+</g>
+<line x1="40" y1="584" x2="72" y2="584" stroke="#1C2A6E" stroke-width="1.4"/><text x="80" y="587" fill="#5C6170" font-size="10" font-family="'IBM Plex Mono', monospace">accent: the second read, only for rejected words</text><line x1="440" y1="584" x2="472" y2="584" stroke="#5C6170" stroke-width="1.2" stroke-dasharray="5,4"/><text x="480" y="587" fill="#5C6170" font-size="10" font-family="'IBM Plex Mono', monospace">dashed: word bank or returning</text>
+</svg>
+</div></div></body></html>
