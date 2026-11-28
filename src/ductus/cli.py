@@ -141,7 +141,7 @@ def main(argv=None):
     s.add_argument("--no-ocr", action="store_true", help="skip OCR-based upside-down detection")
     s.set_defaults(fn=cmd_style)
     c = sub.add_parser("charset", help="trace your own capitals, digits and symbols from a photo of a character sheet")
-    c.add_argument("photo", help="one sheet, rows: a-n / o-z / A-P / Q-Z / 0-9 / = + - x ÷ / ( ) % . , : ; ? ! √ / ² \" '")
+    c.add_argument("photo", help="one sheet, rows: a-n / o-z / A-P / Q-Z / 0-9 / = + - x ÷ / ( ) %% . , : ; ? ! √ / ² \" '")
     c.add_argument("--style", required=True, help="style folder (from `ductus style`) to save glyphs.json into")
     c.set_defaults(fn=cmd_charset)
     p = sub.add_parser("presets", help="list built-in styles")
